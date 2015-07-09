@@ -1,0 +1,134 @@
+{
+    "07000200C922A841F6473E7C": {
+        "mount_point": "X:", 
+        "platform_name": "NUCLEO_F103RB", 
+        "platform_name_unique": "NUCLEO_F103RB[0]", 
+        "serial_port": "COM19", 
+        "target_id": "07000200C922A841F6473E7C", 
+        "target_id_mbed_htm": "07000200C922A841F6473E7C", 
+        "target_id_usb_id": "0671FF534951775087131543",
+        "hub_id": "1",
+        "hub_port_id": "0"
+    }, 
+    "07050200623B61125D5EF72A": {
+        "mount_point": "T:", 
+        "platform_name": "NUCLEO_F302R8", 
+        "platform_name_unique": "NUCLEO_F302R8[0]", 
+        "serial_port": "COM20", 
+        "target_id": "07050200623B61125D5EF72A", 
+        "target_id_mbed_htm": "07050200623B61125D5EF72A", 
+        "target_id_usb_id": "066EFF525257775087141721",
+        "hub_id": "1",
+        "hub_port_id": "11"
+    }, 
+    "07100200860579FAB960EFD7": {
+        "mount_point": "V:", 
+        "platform_name": "NUCLEO_L152RE", 
+        "platform_name_unique": "NUCLEO_L152RE[0]", 
+        "serial_port": "COM25", 
+        "target_id": "07100200860579FAB960EFD7", 
+        "target_id_mbed_htm": "07100200860579FAB960EFD7", 
+        "target_id_usb_id": "066EFF534951775087215736",
+        "hub_id": "1",
+        "hub_port_id": "3"
+    }, 
+    "071502005D1256016277C029": {
+        "mount_point": "U:", 
+        "platform_name": "NUCLEO_L053R8", 
+        "platform_name_unique": "NUCLEO_L053R8[0]", 
+        "serial_port": "COM24", 
+        "target_id": "071502005D1256016277C029", 
+        "target_id_mbed_htm": "071502005D1256016277C029", 
+        "target_id_usb_id": "066FFF525257775087155144",
+        "hub_id": "1",
+        "hub_port_id": "9"
+    }, 
+    "072502007527661A4A42F002": {
+        "mount_point": "I:", 
+        "platform_name": "NUCLEO_F030R8", 
+        "platform_name_unique": "NUCLEO_F030R8[0]", 
+        "serial_port": "COM10", 
+        "target_id": "072502007527661A4A42F002", 
+        "target_id_mbed_htm": "072502007527661A4A42F002", 
+        "target_id_usb_id": "0670FF534951775087214317",
+        "hub_id": "1",
+        "hub_port_id": "8"
+    }, 
+    "073002006230631A5D55F517": {
+        "mount_point": "L:", 
+        "platform_name": "NUCLEO_F072RB", 
+        "platform_name_unique": "NUCLEO_F072RB[0]", 
+        "serial_port": "COM17", 
+        "target_id": "073002006230631A5D55F517", 
+        "target_id_mbed_htm": "073002006230631A5D55F517", 
+        "target_id_usb_id": "0670FF494951785087152739",
+        "hub_id": "1",
+        "hub_port_id": "5"
+    }, 
+    "07350200006702233F02942B": {
+        "mount_point": "Y:", 
+        "platform_name": "NUCLEO_F334R8", 
+        "platform_name_unique": "NUCLEO_F334R8[0]", 
+        "serial_port": "COM9", 
+        "target_id": "07350200006702233F02942B", 
+        "target_id_mbed_htm": "07350200006702233F02942B", 
+        "target_id_usb_id": "066CFF485452785087211613",
+        "hub_id": "1",
+        "hub_port_id": "1"
+    }, 
+    "075002000750051938359374": {
+        "mount_point": "K:", 
+        "platform_name": "NUCLEO_F091RC", 
+        "platform_name_unique": "NUCLEO_F091RC[0]", 
+        "serial_port": "COM18", 
+        "target_id": "075002000750051938359374", 
+        "target_id_mbed_htm": "075002000750051938359374", 
+        "target_id_usb_id": "066CFF554856805087105549",
+        "hub_id": "1",
+        "hub_port_id": "4"
+    }, 
+    "07550200735867294C3DF141": {
+        "mount_point": "F:", 
+        "platform_name": "NUCLEO_F070RB", 
+        "platform_name_unique": "NUCLEO_F070RB[0]", 
+        "serial_port": "COM16", 
+        "target_id": "07550200735867294C3DF141", 
+        "target_id_mbed_htm": "07550200735867294C3DF141", 
+        "target_id_usb_id": "0677FF514951775087045222",
+        "hub_id": "1",
+        "hub_port_id": "7"
+    },
+    "07400200073C61073859F77A": {
+        "mount_point": "M:", 
+        "platform_name": "NUCLEO_F411RE", 
+        "platform_name_unique": "NUCLEO_F411RE[0]", 
+        "serial_port": "COM23", 
+        "target_id": "07400200073C61073859F77A", 
+        "target_id_mbed_htm": "07400200073C61073859F77A", 
+        "target_id_usb_id": "066AFF494956805087155327",
+        "hub_id": "1",
+        "hub_port_id": "2"
+    }, 
+    "07450200007E8E2C3F1B1854": {
+        "mount_point": "E:", 
+        "platform_name": "NUCLEO_F303RE", 
+        "platform_name_unique": "NUCLEO_F303RE[0]", 
+        "serial_port": "COM21", 
+        "target_id": "07450200007E8E2C3F1B1854", 
+        "target_id_mbed_htm": "07450200007E8E2C3F1B1854", 
+        "target_id_usb_id": "066DFF505256656767222041",
+        "hub_id": "1",
+        "hub_port_id": "6"
+    }, 
+    "07200200073E650A385BF317": {
+        "mount_point": "E:", 
+        "platform_name": "NUCLEO_F401RE", 
+        "platform_name_unique": "NUCLEO_F401RE[0]", 
+        "serial_port": "COM22", 
+        "target_id": "07200200073E650A385BF317", 
+        "target_id_mbed_htm": "07200200073E650A385BF317", 
+        "target_id_usb_id": "0671FF534951775087172550",
+        "hub_id": "1",
+        "hub_port_id": "10"
+    }
+}

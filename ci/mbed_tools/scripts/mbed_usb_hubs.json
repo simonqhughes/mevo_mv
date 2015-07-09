@@ -1,0 +1,14 @@
+{
+    "0": {
+        "hub_name": "Cambrionix XXX 00", 
+        "hub_id": "0", 
+        "serial_port": "COM51",
+        "config_file" : "MSTT_RACK_01_SUBRACK_01_CARD_00_HUB_00.json" 
+    }, 
+    "1": {
+        "hub_name": "Cambrionix XXX 01", 
+        "hub_id": "1", 
+        "serial_port": "COM50",
+        "config_file" : "MSTT_RACK_01_SUBRACK_01_CARD_01_HUB_00.json" 
+    } 
+}
