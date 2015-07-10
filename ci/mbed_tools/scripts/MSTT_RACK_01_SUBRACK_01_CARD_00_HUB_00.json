@@ -1,8 +1,8 @@
 {
     "02000203240881BBD9F47C43": {
         "mount_point": "F:", 
-        "platform_name": "KL25Z", 
-        "platform_name_unique": "KL25Z[0]", 
+        "platform_name": "MAXWSNENV", 
+        "platform_name_unique": "MAXWSNENV[0]", 
         "serial_port": "COM18", 
         "target_id": "02000203240881BBD9F47C43", 
         "target_id_mbed_htm": "02000203240881BBD9F47C43", 
@@ -12,8 +12,8 @@
     }, 
     "02200203E6761E7B1B8AE3A3": {
         "mount_point": "H:", 
-        "platform_name": "KL46Z", 
-        "platform_name_unique": "KL46Z[1]", 
+        "platform_name": "not_poplated", 
+        "platform_name_unique": "not_populated[0]", 
         "serial_port": "COM19", 
         "target_id": "02200203E6761E7B1B8AE3A3", 
         "target_id_mbed_htm": null, 
@@ -23,8 +23,8 @@
     }, 
     "0231020337317E7FCACD83B6": {
         "mount_point": "N:", 
-        "platform_name": "K22F", 
-        "platform_name_unique": "K22F[0]", 
+        "platform_name": "not_populated", 
+        "platform_name_unique": "not_populated[1]", 
         "serial_port": "COM20", 
         "target_id": "0231020337317E7FCACD83B6", 
         "target_id_mbed_htm": "0231020337317E7FCACD83B6", 
@@ -34,8 +34,8 @@
     }, 
     "024002011E661E5CE398E3E4": {
         "mount_point": "I:", 
-        "platform_name": "K64F", 
-        "platform_name_unique": "K64F[0]", 
+        "platform_name": "KL25Z", 
+        "platform_name_unique": "KL25Z[0]", 
         "serial_port": "COM16", 
         "target_id": "024002011E661E5CE398E3E4", 
         "target_id_mbed_htm": "024002011E661E5CE398E3E4", 
@@ -45,8 +45,8 @@
     }, 
     "0400020312345678EFC8AD80": {
         "mount_point": "O:", 
-        "platform_name": "MAXWSNENV", 
-        "platform_name_unique": "MAXWSNENV[0]", 
+        "platform_name": "K64F", 
+        "platform_name_unique": "K64F[0]", 
         "serial_port": "COM3", 
         "target_id": "0400020312345678EFC8AD80", 
         "target_id_mbed_htm": "0400020312345678EFC8AD80", 
@@ -56,8 +56,8 @@
     }, 
     "116802021D4C8D9A222B0DCF": {
         "mount_point": "P:", 
-        "platform_name": "LPC11U68", 
-        "platform_name_unique": "LPC11U68[0]", 
+        "platform_name": "KL46Z", 
+        "platform_name_unique": "KL46Z[0]", 
         "serial_port": "COM21", 
         "target_id": "116802021D4C8D9A222B0DCF", 
         "target_id_mbed_htm": "116802021D4C8D9A222B0DCF", 
@@ -78,8 +78,8 @@
     }, 
     "2005010300008A48D75AB997": {
         "mount_point": "L:", 
-        "platform_name": "EFM32HG_STK3400", 
-        "platform_name_unique": "EFM32HG_STK3400[0]", 
+        "platform_name": "EFM32LG_STK3600", 
+        "platform_name_unique": "EFM32LG_STK3600[0]", 
         "serial_port": "COM6", 
         "target_id": "2005010300008A48D75AB997", 
         "target_id_mbed_htm": "2005010300008A48D75AB997", 
@@ -89,8 +89,8 @@
     }, 
     "2010000900005541D650668B": {
         "mount_point": "K:", 
-        "platform_name": "EFM32WG_STK3800", 
-        "platform_name_unique": "EFM32WG_STK3800[0]", 
+        "platform_name": "EFM32ZG_STK3200", 
+        "platform_name_unique": "EFM32ZG_STK3200[0]", 
         "serial_port": "COM7", 
         "target_id": "2010000900005541D650668B", 
         "target_id_mbed_htm": "2010000900005541D650668B", 
@@ -112,7 +112,7 @@
     "20200009000056BFD6506545": {
         "mount_point": "G:", 
         "platform_name": "EFM32LG_STK3600", 
-        "platform_name_unique": "EFM32LG_STK3600[0]", 
+        "platform_name_unique": "EFM32LG_STK3600[1]", 
         "serial_port": "COM9", 
         "target_id": "20200009000056BFD6506545", 
         "target_id_mbed_htm": "20200009000056BFD6506545", 
@@ -123,7 +123,7 @@
     "203000090000591FD6506AF5": {
         "mount_point": "Q:", 
         "platform_name": "EFM32ZG_STK3200", 
-        "platform_name_unique": "EFM32ZG_STK3200[0]", 
+        "platform_name_unique": "EFM32ZG_STK3200[1]", 
         "serial_port": "COM12", 
         "target_id": "203000090000591FD6506AF5", 
         "target_id_mbed_htm": "203000090000591FD6506AF5", 
