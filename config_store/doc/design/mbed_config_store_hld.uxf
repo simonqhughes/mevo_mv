@@ -1,50 +1,52 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <diagram program="umlet" version="13.2">
-  <zoom_level>6</zoom_level>
+  <zoom_level>8</zoom_level>
   <element>
     <id>UMLInterface</id>
     <coordinates>
-      <x>318</x>
-      <y>372</y>
-      <w>468</w>
-      <h>180</h>
+      <x>480</x>
+      <y>344</y>
+      <w>668</w>
+      <h>272</h>
     </coordinates>
-    <panel_attributes>Mbed-Config-Store (MCS) Interface
+    <panel_attributes>Config-Store (CS) Interface
 --
-/* config store instantiation/intialisation */
-uint32_t mcs_open(uvisor_security_context* uvisor, mcs_handle* owner)
-void mcs_close(mcs_handle* owner)
+/* config store instantiation/initialisation */
+cfstore_open_ctx(uint8_t* security_name_prefix)
+void cfstore_close_ctx(cfstore_handle owner)
 
-/* info services api */
-uint32_t mcs_detect(?)
+cfstore_handle cfstore_find(cfstore_handle owner, const char* key_name_query, cfstore_handle previous)
+int32_t cfstore_storage_detect(cfstore_handle owner, cfstore_storage_desc_t* sdesc, cfstore_storage_desc_t* prev)
+const char* cfstore_strerror(uint32_t errno)
 
 /* key management api */
-uint32_t mcs_key_create(mcs_handle* owner, unit8_t* key_name, unit32_t value_len, mcs_key_desc* kdesc)
-uint32_t mcs_key_destroy(mcs_handle* owner, unit8_t* key_name, mcs_key_desc* kdesc)
-uint32_t mcs_key_find(mcs_handle* owner, unit8_t* key_name, ?iterator?)
-uint32_t mcs_key_open(mcs_handle* owner, unit8_t* key_name, mcs_handle* key_handle, ?mode=O_READ, O_WRITE?)
-uint32_t mcs_key_close(mcs_handle* key_handle)
-uint32_t mcs_key_value_seek(mcs_handle* key_handle, ?)
+cfstore_handle cfstore_open(cfstore_handle owner, uint8_t* key_name, uint8_t* data, uint32_t* len, cfstore_key_desc_t* kdesc);
+void cfstore_close(cfstore_handle key_handle);
+
+int32_t cfstore_read(cfstore_handle key_handle, uint8_t* data, uint32_t* len)
+int32_t cfstore_write(cfstore_handle key_handle, uint8_t* data, uint32_t* len, uint32_t offset)
+int32_t cfstore_rseek(cfstore_handle key_handle, uint32_t offset, uint32_t whence)
+
 </panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>504</x>
-      <y>672</y>
-      <w>390</w>
-      <h>84</h>
+      <x>776</x>
+      <y>744</y>
+      <w>520</w>
+      <h>112</h>
     </coordinates>
-    <panel_attributes>mcs_key_desc
+    <panel_attributes>cfstore_key_desc
 --
 /*key descriptor attributes */
-mcs_access_control_list acl
-mcs_data_retention_levels drl
-mcs_device_data_security_protection ddsp
+cfstore_access_control_list acl
+cfstore_data_retention_levels drl
+cfstore_device_data_security_protection ddsp
 unit32_t offset_address /*? todo: define exact purpose */
 unit32_t properties /* include alignment bits in lower 5 bits and reserve other for future use */
-mcd_key_mode mode
+cfstore_key_mode mode
 
 
 
@@ -55,12 +57,12 @@ mcd_key_mode mode
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>264</x>
-      <y>816</y>
-      <w>192</w>
-      <h>132</h>
+      <x>456</x>
+      <y>936</y>
+      <w>256</w>
+      <h>176</h>
     </coordinates>
-    <panel_attributes>mcs_access_control_list
+    <panel_attributes>cfstore_access_control_list
 --
 /*bitfield where bits have designated permission for group*/
 
@@ -79,12 +81,12 @@ bit: perm_other_exe
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>480</x>
-      <y>822</y>
-      <w>162</w>
-      <h>108</h>
+      <x>744</x>
+      <y>944</y>
+      <w>216</w>
+      <h>144</h>
     </coordinates>
-    <panel_attributes>mcs_data_retention_level
+    <panel_attributes>cfstore_data_retention_level
 --
 /* supported volatility values of different sotrage mediums */
 
@@ -101,12 +103,12 @@ enum: non_volatile_external
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>864</x>
-      <y>810</y>
-      <w>138</w>
-      <h>102</h>
+      <x>1256</x>
+      <y>928</y>
+      <w>184</w>
+      <h>136</h>
     </coordinates>
-    <panel_attributes>mcs_key_mode
+    <panel_attributes>cfstore_key_mode
 --
 /*bitfield containing ...*/
 bit: O_CREATE
@@ -125,10 +127,10 @@ bit: O_ALLOC_AT_OFFSET
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>348</x>
-      <y>750</y>
-      <w>276</w>
-      <h>78</h>
+      <x>568</x>
+      <y>848</y>
+      <w>368</w>
+      <h>104</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;110.0;440.0;10.0</additional_attributes>
@@ -136,10 +138,10 @@ bit: O_ALLOC_AT_OFFSET
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>606</x>
-      <y>750</y>
-      <w>336</w>
-      <h>72</h>
+      <x>912</x>
+      <y>848</y>
+      <w>448</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>540.0;100.0;10.0;10.0</additional_attributes>
@@ -147,12 +149,12 @@ bit: O_ALLOC_AT_OFFSET
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>654</x>
-      <y>816</y>
-      <w>198</w>
-      <h>144</h>
+      <x>976</x>
+      <y>936</y>
+      <w>264</w>
+      <h>192</h>
     </coordinates>
-    <panel_attributes>mcs_device_data_security_protection
+    <panel_attributes>cfstore_device_data_security_protection
 --
 /*bitfield with the following setable attributes */
 bit: NONE
@@ -172,10 +174,10 @@ bit: TAMPER_PROOF
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>576</x>
-      <y>750</y>
-      <w>48</w>
-      <h>84</h>
+      <x>872</x>
+      <y>848</y>
+      <w>64</w>
+      <h>112</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;120.0;60.0;10.0</additional_attributes>
@@ -183,10 +185,10 @@ bit: TAMPER_PROOF
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>606</x>
-      <y>750</y>
-      <w>132</w>
-      <h>78</h>
+      <x>912</x>
+      <y>848</y>
+      <w>176</w>
+      <h>104</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>200.0;110.0;10.0;10.0</additional_attributes>
@@ -194,10 +196,10 @@ bit: TAMPER_PROOF
   <element>
     <id>UMLActor</id>
     <coordinates>
-      <x>840</x>
-      <y>264</y>
-      <w>78</w>
-      <h>66</h>
+      <x>1224</x>
+      <y>200</y>
+      <w>104</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>Box 1
 Security Context</panel_attributes>
@@ -206,10 +208,10 @@ Security Context</panel_attributes>
   <element>
     <id>UMLActor</id>
     <coordinates>
-      <x>918</x>
-      <y>264</y>
-      <w>78</w>
-      <h>66</h>
+      <x>1328</x>
+      <y>200</y>
+      <w>104</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>Box i
 Security Context</panel_attributes>
@@ -218,10 +220,10 @@ Security Context</panel_attributes>
   <element>
     <id>UMLActor</id>
     <coordinates>
-      <x>990</x>
-      <y>264</y>
-      <w>78</w>
-      <h>66</h>
+      <x>1424</x>
+      <y>200</y>
+      <w>104</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>Box n
 Security Context</panel_attributes>
@@ -230,10 +232,10 @@ Security Context</panel_attributes>
   <element>
     <id>UMLUseCase</id>
     <coordinates>
-      <x>894</x>
-      <y>384</y>
-      <w>138</w>
-      <h>72</h>
+      <x>1296</x>
+      <y>360</y>
+      <w>184</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>Config Store
 {key,value} storage operations
@@ -243,10 +245,10 @@ Security Context</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>882</x>
-      <y>300</y>
-      <w>96</w>
-      <h>96</h>
+      <x>1280</x>
+      <y>248</y>
+      <w>128</w>
+      <h>128</h>
     </coordinates>
     <panel_attributes>&lt;&lt;uses&gt;&gt;</panel_attributes>
     <additional_attributes>10.0;10.0;140.0;140.0</additional_attributes>
@@ -254,10 +256,10 @@ Security Context</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>960</x>
-      <y>300</y>
-      <w>42</w>
-      <h>96</h>
+      <x>1384</x>
+      <y>248</y>
+      <w>56</w>
+      <h>128</h>
     </coordinates>
     <panel_attributes>&lt;&lt;uses&gt;&gt;</panel_attributes>
     <additional_attributes>10.0;10.0;10.0;140.0</additional_attributes>
@@ -265,10 +267,10 @@ Security Context</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>960</x>
-      <y>300</y>
-      <w>90</w>
-      <h>96</h>
+      <x>1384</x>
+      <y>248</y>
+      <w>120</w>
+      <h>128</h>
     </coordinates>
     <panel_attributes>&lt;&lt;uses&gt;&gt;</panel_attributes>
     <additional_attributes>130.0;10.0;10.0;140.0</additional_attributes>
@@ -276,26 +278,16 @@ Security Context</panel_attributes>
   <element>
     <id>UMLNote</id>
     <coordinates>
-      <x>456</x>
-      <y>0</y>
-      <w>84</w>
-      <h>42</h>
-    </coordinates>
-    <panel_attributes>Note..
-bg=blue</panel_attributes>
-    <additional_attributes/>
-  </element>
-  <element>
-    <id>UMLNote</id>
-    <coordinates>
-      <x>246</x>
-      <y>258</y>
-      <w>414</w>
-      <h>84</h>
+      <x>464</x>
+      <y>232</y>
+      <w>304</w>
+      <h>64</h>
     </coordinates>
     <panel_attributes>Note..
 mbed_config_store_hld
-v0.01 20160124
+v0.02
+20160125
+
 </panel_attributes>
     <additional_attributes/>
   </element>

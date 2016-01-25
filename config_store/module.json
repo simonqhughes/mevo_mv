@@ -1,0 +1,32 @@
+{
+  "name": "configuration-store",
+  "version": "0.0.1",
+  "description": "Configuration Storage for Secure Key-Value Storage.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ARMmbed/configuration-store.git"
+  },
+  "homepage": "https://github.com/ARMmbed/configuration-store",
+  "bugs": {
+    "url": "http://github.com/ARMmbed/configuration-store/issues",
+    "email": "project@hostname.com"
+  },
+  "author": "Simon D Hughes <simon.hughes@arm.com>",
+  "licenses": [
+    {
+      "url": "https://spdx.org/licenses/Apache-2.0",
+      "type": "Apache-2.0"
+    }
+  ],
+  "dependencies": {},
+  "targetDependencies": {
+  },
+  "keywords": [
+    "mbed",
+    "mbed-official",
+    "configuration-store",
+  ]
+}

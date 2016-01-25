@@ -1,0 +1,4 @@
+/* configure-store.h
+ *
+ * interface
+ * */
