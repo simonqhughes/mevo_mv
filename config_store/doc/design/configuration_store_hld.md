@@ -19,8 +19,19 @@ a newly allocated chunk.
 
 # Overview
 
-The configuration store is an associative store for managing (key, value) 
-pairs in persistent storage media.
+This document is the High Level Design for the first version of the 
+Configuration Store (CS). The configuration store is an associative 
+store for managing (key, value) pairs in persistent storage media. It
+implements a subset of the requirements as listed in the suppported 
+requirements
+
+
+## Outstanding Issues With This Document
+
+The following is a list of outstanding issues with this document:
+- the list of supported requiremetns needs updating.
+- security considerations need defining.
+- the usage of keys needs defining.
 
 
 # Use Cases
@@ -29,10 +40,91 @@ The design addresses the requirements of the following use cases:
 - CS Initialisation and Factory Initialisation 
 - FOTA
 
- 
-# System Logical High Level Design
+## FOTA Use Case
 
-## Storage Areas 
+- FOTA received new new firmware image incrementally in data blocks.
+- Firmware image sizes are in the range 32-512kB. 
+- FOTA may choose to manage an image in blocks e.g. size 16kB chunks 
+  so a 512kB image would be made up of 32 data blocks i.e. 32 x 16kB=512kB
+- FOTA is responsible for receiving the 16kB blocks.
+- FOTA may have 32 keys in the registry each storing 16kBs.
+- A number of CS keys may be open simultaneously.
+- FOTA may be writing incrementally to the key values, as data is received.
+- FOTA block data may stored in memory initialially
+
+ 
+# Configuration-Store Software Architecture
+
+```C
+    
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+     
+    |  Configuration Store Client   |     
+    |  e.g. FOTA                    |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+     
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  Configuration Store          |     |  uvisor                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  Flash Abstraction Layer      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  Flash Driver Layer           |
+    |  e.g. CMSIS-Driver            |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    SW
+    --------------------------------
+    HW
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  NV Storage Media e.g. Flash  |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+	Configuration Store Software Architecture
+
+```
+
+The above figure
+Configuration Store Software Architecture
+shows the following entities:
+- NV Storage Media. These are the physical storage media 
+- Flash Driver layer e.g. CMSIS-Driver 
+- Flash Abstraction Layer, portable across the driver layer
+- Configuration Store, the associative KV pair store.
+- A Configuration Store client e.g. FOTA. 
+
+
+# Configuration-Store Application Programming Interface
+
+The API will have the characteristics of a simple file system:
+- cfstore_open() does the following:  
+  -- creates a new (key, value) pair in the store (O_CREATE) if
+     the key not pre-exist in the store.
+  -- opens an existing (key, value) pair for further manipulation
+  -- return an opaque handle to kv pair
+- cfstore_close() releases the opaque handle returned by cfstore_open().
+- cfstore_read() reads the value of the kv pair.
+- cfstore_rseek() changes the read location for the cfstore_read().
+- cfstore_write() sets the value of the kv pair.
+- cfstore_flush() 'finalises' the value data. This means 
+  writing changes to the nv backing sore.
+
+Additionally, the API supports:
+- cfstore_find() queries the CS for keys matching a search string. 
+  The function returns an opaque handle to the first matching search
+  result. The function can be used to iterate over the entries, 
+  supplying a previously returned key handle to retrive the next, until
+  the null handle is returned, indicating there are no more matches.  
+- cfstore_storage_detect() returns attributes describing the underlying 
+  nv stores.
+
+
+# Configuration-Store Storage Areas
+
+## Storage Area Overview 
 - There are 3 storage areas in the system:
     - 1 volatile swap area in memory (area_0) for caching client 
       CS changes.
@@ -87,7 +179,7 @@ Note the following form the above diagram:
 - The area ends with a tail structure.
 
 
-## Use Case: Factory Initialisation (Empty Store)
+## Storage Area Use Case: Factory Initialisation (Empty Store)
 
 The initialisation sequence is as follows:
 - area_0 is created with H_0:version = random_number, no (key, value) pair 
@@ -297,7 +389,8 @@ the sytem can represented in the following general way:
 ```
 
 
-## Use Case: Subsequent Initialisation (Non-Empty Store).
+## Storage Area Use Case: Subsequent Initialisation (Non-Empty Store).
+
 After factory configuration, at the start of initialisation CS finds the 
 following general situation 
 (see System Area Configuration after a Number of Config-Store Update 
@@ -378,6 +471,20 @@ After initialisation, the system would look the same as the figure
 System Area Configuration after a Number of Config-Store Update Procedures
 where swap area_0 is an identical copy of area_1
 
-## Keys
+
+# Configuration Store Internal Data Structures for Finding KV Pairs
+
+Associative stores typically implement data structures to improve memory 
+footprint versus lookup performance when finding keys e.g. 
+hash trees. CS does not implement such data structures but rather searches the 
+swap area_0 for matches. This is for reasons of simplicity.
 
 
+# Supported Requirements
+
+The Configuration Store Requirements are documented here:
+
+[CFSTORE_REQUIREMENTS](https://github.com/ARMmbed/meVo/blob/master/config_store/doc/design/configuration_store_requirements.md)
+
+The supported requirements are listed here:
+- None

@@ -1,5 +1,10 @@
 # REQUIREMENTS
 
+## Defintion of Terms
+CS = Configuration Store
+KV = Key Value Pair. {key, value}
+NV = Non Volatile 
+
 ## Secure Key Value Storage\Rationale (REQ-1.xx-SKVS-R) Requirements
 
 ##### REQ-1.01-SKVS-R:
@@ -31,7 +36,7 @@ The {key, value} tuple is a CS object.
 ##### REQ-1.07-SKVS-R: CS Stores Binary Blobs
 The CS must support services so that other components can implement
 more complex storage types other than a binary blob e.g. by
-wrapping the underlying CS {key, value} tuple object with addition
+wrapping the underlying CS {key, value} tuple with additional
 type information.
 
 ##### REQ-1.08-SKVS-R: CS Key Structure as Name Strings
@@ -91,7 +96,7 @@ data security protection features, when available:
   or chip level sensors)
 
 ##### REQ-1.2.04-SKVS-HLD:
-The CS may be used to implement object storage protection services
+The CS may be used to implement KV storage protection services
 (e.g. flash image roll-back protection, confidentiality) for off-chip
 (external) storage media (e.g. SPI/I2C/NAND Flash).
 
@@ -146,7 +151,7 @@ The CS must enforce security policies as defined by Access Control Lists.
 
 ##### REQ-3.2.02-SKVS-HLAPID-KACS: CS Key Creation Part 2
 The CS objects must be created with an ACL. The ACL is attached to the object
-so that access permissions to the object can be enforced.
+so that access permissions to the KV data can be enforced.
 
 ##### REQ-3.2.03-SKVS-HLAPID-KACS:
 The CS Access Control Lists must support the groups for 'owner' and 'other',
@@ -157,10 +162,10 @@ than the owner. The writable and executable permissions are mutually
 exclusive.
 
 ##### REQ-3.2.04-SKVS-HLAPID-KACS:
-A CS API client must be able to query the CS for a list of objects provided
-the object ACL permissions allow the client access. The query result must
-contain all client owner object. The query results may include non-client
-owned objects provided the other group permissions grant access.
+A CS API client must be able to query the CS for a list of KV pairs provided
+the KV pair ACL permissions allow the client access. The query result must
+contain all client owner KVs. The query results may include non-client
+owned KVs provided the other group permissions grant access.
 
 
 ## Secure Key Value Storage\API Logic\Finding Keys (REQ-5.1.xx-SKVS-APIL-FK) Requirements.
@@ -181,7 +186,7 @@ storage. The query must:
 The character '*' is reserved in the CS global key namespace. The current
 functions of this character as as follows:
 - a wild card character in searches.
-- a wild card character used in object delete operation.
+- a wild card character used in the delete operation.
 
 
 ##### REQ-5.1.03-SKVS-APIL-FK: Key Searching/Finding Resume
@@ -191,11 +196,10 @@ query interface must support the ability to restart/resume the query to
 retrieve a subsequent set of records to those already received.
 
 ##### REQ-5.1.04-SKVS-APIL-FK: Key Searching/Finding Internals (key versions)
-(todo: resolve problems as this mixed a requirement)
-Internally, CS stores objects with a version number.
-- todo: define what is the role of this version number?
-- todo: define what is the role of this version number in querying for
-  keys?
+The CS must be robust against incomplete, corrupted or aborted write 
+operations to NV store caused for example, by loss of power during the 
+write. 
+
 
 ## Secure Key Value Storage\API Logic\Get Storage Information (REQ-5.2.xx-SKVS-APIL-GSI) Requirements.
 
@@ -229,10 +233,10 @@ parameters:
   blob is aligned on a multiple of the 2alignment_bits
 - mode flags (O_CREATE, O_CONTINUOUS, O_LAZY_FLUSH, O_BLOCK_WRITE,
   O_ALLOCATE_AT_OFFEST).
-  -- O_CREATE. The call will create the {key,value} object. If a
-     pre-existing object with the same name is present in CS then the
+  -- O_CREATE. The call will create the KV pair. If a
+     pre-existing KV with the same name is present in CS then the
      storage_key_create will fail with FILE_EXISTS.
-  -- O_CONTINUOUS. The object value will be stored in a continuous range
+  -- O_CONTINUOUS. The KV value will be stored in a continuous range
      of hardware addresses.
   -- O_LAZY_FLUSH ? (todo: define)
   -- O_BLOCK_WRITE ? (todo: define)
@@ -255,7 +259,7 @@ ACL allows writing to the caller:
   implementation detail)
 
 ##### REQ-5.3.03-SKVS-APIL-COKFW: O_CONTINUOUS for executable objects
-CS will manage an executable object as though the mode O_CONTINUOUS flag
+CS will manage an executable KV as though the mode O_CONTINUOUS flag
 is set.
 
 ##### REQ-5.3.04-SKVS-APIL-COKFW: O_CONTINUOUS for non-executable objects
@@ -266,28 +270,27 @@ objects.
 ## Secure Key Value Storage\Updating and Settings and Permissions (REQ-6.1.xx-SKVS-USP) Requirements.
 
 ##### REQ-6.1.01-SKVS-USP:
-CS does not permit the updating of object {key, value} permissions
-or settings. This is to promote security.
+CS does not permit the updating of KV pair permissions or settings. This is to promote security.
 
 
 ## Secure Key Value Storage\Updating and Settings and Permissions\Deleting Keys (REQ-6.2.xx-SKVS-USP-DK) Requirements.
 
 ##### REQ-6.2.01-SKVS-USP-DK:
-Only the owner of the CS object can delete the object. The wildcard
+Only the owner of the CS KV pair can delete the object. The wildcard
 '*' character can be specified to delete an owned subtree of the CS
 global key namespace.
 
 ##### REQ-6.2.02-SKVS-USP-DK:
-To change the value of a CS object, the owner must:
-- delete the object
-- create the object with the new attributes.
+To change the value of a CS KV pair, the owner must:
+- delete the KV pair
+- create a new KV pair with the new value/attributes.
 
 
 ## Secure Key Value Storage\Updating and Settings and Permissions\Opening Keys for Reading (REQ-6.2.xx-SKVS-USP-OKFR) Requirements.
 
 ##### REQ-6.3.xx-SKVS-USP-OKFR storage_key_open_read
-CS objects must be explicitly opened storage_key_open_read(key_name)
-before operations on the object can be performed. The object must
+CS objects must be explicitly opened with storage_key_open_read(key_name)
+before operations on the KV pair can be performed. The KV must
 pre-exist in the store before it can be opened.
 
 
@@ -306,7 +309,7 @@ value attribute.
 ## Secure Key Value Storage\Updating and Settings and Permissions\Writing Keys (REQ-6.4.xx-SKVS-USP-WK) Requirements.
 
 ##### REQ-6.5.01-SKVS-USP-WK
-CS object values can be written in one or more operation.
+CS KV values can be written in one or more operation.
 todo: are there any requirements arising from these statements?
 They appear to refer to CS internal implementation details.
 - The CRC block including the activation is set after the last value
@@ -316,9 +319,10 @@ They appear to refer to CS internal implementation details.
 - Each value-fragment is independently finalised.
 
 ##### REQ-6.5.01-SKVS-USP-WK
-CS object write interface has the following semantics:
-- Writing to a non-finalised object is only allowed to the owner.
+CS KV write interface has the following semantics:
+- Writing to a non-finalised object is only allowed by the owner.
 - Closing of a written object results in the finalisation of the object.
+- Flushing of the CS results in the finalisation of the store.
 - Non-finalised object can't be read.
 
 
@@ -326,7 +330,16 @@ CS object write interface has the following semantics:
 Requirements.
 
 ##### REQ-6.6.xx-SKVS-USP-EKFU
+todo 
 
+
+## Secure Key Value Storage\Miscellaneous (REQ-7.1.xx-SKVS-M)Requirements.
+
+##### REQ-7.1.01-SKVS-M
+The CS will implement a C Language interface.
+
+##### REQ-7.1.02-SKVS-M
+The CS does not support hot-pluggable storage devices which SD flash. 
 
 
 
