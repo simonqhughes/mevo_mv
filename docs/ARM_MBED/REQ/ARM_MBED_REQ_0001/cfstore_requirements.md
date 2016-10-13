@@ -29,7 +29,7 @@ data upto to 1MB data.
 
 `REQ_CFSTORE_PROD_GEN_0006`: CFSTORE Feature Configuration: CFSTORE MUST implement configuration 
 switches so CFSTORE features can be turned on or off by default. CFSTORE 
-features incompatible with the platform OS or another subsystem's features MAY then be disabled. 
+features incompatible with the platform OS or another subsystems features MAY then be disabled. 
 The switches SHOULD be set at compile time.  
 
 
@@ -74,8 +74,8 @@ with the mbed Cloud client features SHOULD be disabled by default. For example, 
 "Use on-chip NV storage" feature SHOULD be disabled by default when the mbed Cloud Client 
 "Use Thread Stack" feature is enabled.
 
-`REQ_CFSTORE_PROD_PORT_0004`: Platform OS Wrappers: CFSTORE and it's subcomponents SHOULD be capable of 
-being encapsulated for multiple platform OS's to expose a platform OS specific APIs. The 
+`REQ_CFSTORE_PROD_PORT_0004`: Platform OS Wrappers: CFSTORE and its subcomponents SHOULD be capable of 
+being encapsulated for multiple platform OSs to expose a platform OS specific APIs. The 
 design and implementation of the CFSTORE OS wrappers will be determined by
 the OS maintainers. However, CFSTORE SHOULD facilitate this process by minimizing the 
 effort required to implement the wrappers.  
@@ -269,7 +269,7 @@ This entity is the portable storage driver API equating to the CMSIS Storage Dri
 `REQ_CFSTORE_UPDATE_SRV_20161012_10`: Abstract away a wide range of underlying storage systems.
 
 - Who needs it:PAL team. mbed OS users.
-- Why do they need it: To minimise porting effort required to adapt to different storage hardware.  To provide a consistent programmers’ model over a wide range of storage hardware, so that users don’t need to know a lot about the hardware.  
+- Why do they need it: To minimise porting effort required to adapt to different storage hardware.  To provide a consistent programmers model over a wide range of storage hardware, so that users dont need to know a lot about the hardware.  
 - When do they need it:  Ask Simon F and Sam G
 - Who is proposing it: Amyas, SDH,  
 - Design suggestions: Appear and behave the same whether backed by on-chip, dual-bank or external Flash, EEPROM or RAM
@@ -463,7 +463,7 @@ drop alignment with CMSIS API specification?
 - When do they need it: TDB
 - Who is proposing it: Milosch Meriac
 - Design suggestions:   
-	- Simon Hughes: The API hasn't been accepted by Kiel. A requirement for a mux/demux layer exists. The need for the mux/demux layer
+	- Simon Hughes: The API hasnt been accepted by Kiel. A requirement for a mux/demux layer exists. The need for the mux/demux layer
 	  can be removed if CMSIS alignment is relaxed and each method has a context argument. This will simplify the
 	  portable software stack.
 - Comments:   
@@ -599,7 +599,7 @@ Is CFSTORE going to be part of the PAL? Will Provisioning Team implement their o
 of CFSTORE?
 
 - Who needs it: Provisioning,   
-- Why do they need it: to port to multiple platform OS's
+- Why do they need it: to port to multiple platform OSs
 - When do they need it:
 - Who is proposing it: 
 - Design suggestions:   
