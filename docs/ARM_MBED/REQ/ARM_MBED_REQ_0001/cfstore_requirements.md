@@ -500,7 +500,7 @@ operating concurrently is not supported.
 `REQ_CFSTORE_CHAL2_20161012_01`:  Support multiple, mutually-unaware users.  
 
 - Who needs it:  Update client.  mbed OS users who want to use the storage abstraction and also use mbed Cloud Client,
-- Why do they need it: Update Client, Provisioning Client, Connector Client, Thread stack and potentially the user application all want to use the storage system, and they can’t reasonably be expected to coordinate their use of it at design time.
+- Why do they need it: Update Client, Provisioning Client, Connector Client, Thread stack and potentially the user application all want to use the storage system, and they cant reasonably be expected to coordinate their use of it at design time.
 - When do they need it:  Update Client needs it when Provisioning launches its asset-provisioning capability in R1.2 (15 Feb 2017) so that it can access Provisioned keys.
 - Design suggestions: In CFSTORE this could mean adding support for multiple users of the asynchronous API.
 
@@ -508,8 +508,8 @@ operating concurrently is not supported.
 `REQ_CFSTORE_CHAL2_20161012_02`:  An asynchronous API.  
 
 - Who needs it: mbed Cloud Client. 
-- Why do they need it: So that read and write operations don’t block execution in single-threaded environments.
-- When do they need it:  Whenever mbed Cloud Client needs to run in single-threaded environments (Roni D’s “constrained” devices)
+- Why do they need it: So that read and write operations dont block execution in single-threaded environments.
+- When do they need it:  Whenever mbed Cloud Client needs to run in single-threaded environments (Roni Ds "constrained" devices)
 - Who is proposing it: Marcus C
 - Design suggestions: 
 
