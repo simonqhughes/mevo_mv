@@ -450,6 +450,20 @@ Current implementation has realloc()-ed heap slab for all KVs present in memory
 	- Solution is the use off-chip storage e.g. SPI SDCard. SDCARD_PRIORITY++.
 
 
+`REQ_CFSTORE_PROV_CLIENT_20161018_03`: Factory-Reset Support (Non-Deletable, Read-Only Data Attributes)  
+
+- What is the requirement: Back-to-factory-reset support – keep a copy of certain CFSTORE entries in a way 
+that allows going back to them upon request. Request should be protected so as only specific entities 
+can ask for it. However, not all CFSTORE entries should be restored – some should persist this operation 
+(most notably, those that are roll-back protected – otherwise, you get a bricked device).
+- Who needs it: mbed Cloud Client (Provisioning)
+- Why do they need it: Factory reset is a required operation on any device.
+- When do they need it:  As soon as possible.
+- Who is proposing it: Nimrod
+- Design suggestions: Keep a shadow of certain CFSTORE entries in a secure manner (rollback protected itself). Restore from it as needed. uVisor for access control.
+
+
+
 ### CFSTORE CMSIS C-HAL Interface (13)
 
 This entity is the portable CFSTORE interface (CMSIS aligned C-HAL).
@@ -550,6 +564,37 @@ Provisioning + PAL: Secured (encrypted) CFSTORE using device RoT
 - Who is proposing it: 
 - Design suggestions:   
 - Comments:   
+
+
+`REQ_CFSTORE_PROV_CLIENT_20161018_01`: Granualar & Controlled Access to Secure Data  
+
+- What is the requirement: Security. Information written to CFSTORE should not be 
+accessible by anyone aside of the entity that wrote it (or, more granular control, 
+but that’s not required for Provisioning), even if an attacker gained access to the 
+device, or gained physical control over the device. [this requirement is covered in 
+the links, but I decided to mention it anyway because it is really cardinal]
+- Who needs it: mbed Cloud Client (Provisioning)
+- Why do they need it: Provisioning stores sensitive assets on the device, that shouldn’t leak.
+- When do they need it:  Today.
+- Who is proposing it: Nimrod
+- Design suggestions: uVisor + cryptography + a good way to secretly store a device-generated key.
+
+
+`REQ_CFSTORE_PROV_CLIENT_20161018_02`: Per-Data Attribute and Per-Operation Roll-back Protection  
+
+- What is the requirement: Roll-back protection per entity and per operation. 
+It should be possible to ask for a specific file/key to be roll-back protected, 
+only for a specific write operation (that is, in general, writes aren’t roll-back protected, but this specific write is).
+- Who needs it: mbed Cloud Client (Provisioning)
+- Why do they need it: This is useful because roll-back protection is expensive (burns a fuse), 
+and not all data written is created equal. Sometimes, it may be desirable to update a certain 
+asset not caring that the value be rolled-back later (an upgrade is performed, but a down-grade 
+isn’t a security or otherwise issue), and sometimes a roll-back should be prohibited (this is a 
+security update, a rollback would expose the device to attacks).
+- When do they need it:  As soon as possible.
+- Who is proposing it: Nimrod
+- Design suggestions: -
+
 
 
 ### Platform-OS CFSTORE Wrapper (17)  
