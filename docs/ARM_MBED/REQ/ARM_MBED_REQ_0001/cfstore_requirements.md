@@ -277,7 +277,7 @@ This entity is the portable storage driver API equating to the CMSIS Storage Dri
     - SDH todo: I propose restating this as a general requirement for the presence of the CMSIS Storage Driver API.
  
 
-`REQ_CFSTORE_MBEDOS_20161012_01`: Storage Drivers/Driver_Storage.h API mbedOS C++ wrapper API supports both synchronous and asynchronous modes of operation.
+`REQ_CFSTORE_MBEDOS_20161012_04`: Storage Drivers/Driver_Storage.h API mbedOS C++ wrapper API supports both synchronous and asynchronous modes of operation.
 
 - Who needs it:  TDB
 - Why do they need it:  TDB   
@@ -726,3 +726,31 @@ thread using the CFSTORE async callback programming model using C.
   covered by `REQ_CFSTORE_MBEDOS_20160810_05` for example.   
 
 
+
+# Notes for action at next arc meeting:
+
+- `REQ_CFSTORE_THREAD_20160811_02`. requirement not specificly a storage requirement. Propose deleting or respecifying into specific requirement.
+- `REQ_CFSTORE_THREAD_20160811_03`. requirement not specificly a storage requirement. Propose deleting or respecifying into specific requirement.
+- `REQ_CFSTORE_THREAD_20160811_04`. requirement not specificly a storage requirement. Propose deleting or respecifying into specific requirement.
+ - `REQ_CFSTORE_MBEDOS_20161012_01`. Ask SamG. If he doesnt want this wrapper then remove requirement. 
+ - `REQ_CFSTORE_UPDATE_SRV_20161012_10` accept this as a general engineering requirement.
+ - `REQ_CFSTORE_MBEDOS_20161012_04`. accept this as as a general engineering requirement.
+ - `REQ_CFSTORE_MBEDOS_20160810_07`. consequence of `REQ_CFSTORE_MBEDOS_20161012_04` and not specifically a requirement.
+ hence, propose removing.
+ -`REQ_CFSTORE_MBEDOS_20160810_03`. Ask SamG. what do you want to do here? 
+ -`REQ_CFSTORE_PROV_CLIENT_20160811_02`. Ask SimonF. Propose accepting as general product requirement. 
+ - `REQ_CFSTORE_MBEDOS_20161012_02` Ask SamG for mbedOS. Ask MarcusS for other platform OSs. Equally applicable to Zephyr or a.n.other platformOS.
+ - `REQ_CFSTORE_SVM_20161013_01`. Ask RohitG/MarcusS? propose accepting as SVM requirement. 
+ - `REQ_CFSTORE_MBEDOS_20161012_03`: Ask SamG for mbedOS. Ask MarcusS for other platform OSs. Equally applicable to Zephyr or a.n.other platformOS.
+ - `REQ_CFSTORE_MBEDOS_20160810_11`. Ask SamG/RohitG/SimonH/MarcusS/. suggest removing this requirement as should be superceded by requirement that all stroage drivers support async mode and there isnt a sync mode that can be switched on via compilation.
+ -`REQ_CFSTORE_MBEDOS_20160810_12`. propose accepting as general engineering requirement for cfstore.
+ - `REQ_CFSTORE_THREAD_20160811_01`. Ask all other stakeholders and MarcusS/SimonF to arbitrate to resolution. propose accepting this requirement and progressing with off-chip storage solutions.
+ - `REQ_CFSTORE_UPDATE_SRV_20161012_03`. propose remove. covered by `REQ_CFSTORE_PROD_GEN_0005`.
+ - `REQ_CFSTORE_PROV_CLIENT_20161018_03`. propose accepting in part. Make engineering requirements for 
+ Non-Deletable KVs, Read-Only Data KVs, rollback protected KVs in the CFSTORE i.e. CFSTORE needs to provide primitives which permit something built on-top of cfstore to implement the factory reset behavior. Partly covered by `REQ_CFSTORE_PROD_SEC_0004`, which should be enhanced with discussion and usecase information. 
+ - `REQ_CFSTORE_MBEDOS_20160810_04`. propose removing this requirement i.e. CFSTORE-CHAL no longer has to conform to CMSIS alignment.
+ - `REQ_CFSTORE_MBEDOS_20160810_09`. Ask stakeholders. propose accepting as engineering requirement for general configurability of 
+ portable software stack.
+ - `REQ_ENG_MUX_DEMUX_0001` propose accept this requirement.
+ - `REQ_CFSTORE_CHAL2_20161012_01`. duplicate. merge with `REQ_ENG_MUX_DEMUX_0001` 
+ - `REQ_CFSTORE_CHAL2_20161012_02`. duplicate. merge in with superceded requirement of `REQ_CFSTORE_MBEDOS_20160810_11`.
