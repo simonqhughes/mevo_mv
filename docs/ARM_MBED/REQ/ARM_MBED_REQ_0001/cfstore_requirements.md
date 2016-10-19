@@ -744,9 +744,9 @@ thread using the CFSTORE async callback programming model using C.
 - `REQ_CFSTORE_MBEDOS_20160810_07`. consequence of `REQ_CFSTORE_MBEDOS_20161012_04` and not specifically a requirement.
  hence, propose removing.
 
--`REQ_CFSTORE_MBEDOS_20160810_03`. Ask SamG. what do you want to do here? 
+- `REQ_CFSTORE_MBEDOS_20160810_03`. Ask SamG. what do you want to do here? 
 
--`REQ_CFSTORE_PROV_CLIENT_20160811_02`. Ask SimonF. Propose accepting as general product requirement. 
+- `REQ_CFSTORE_PROV_CLIENT_20160811_02`. Ask SimonF. Propose accepting as general product requirement. 
 
 - `REQ_CFSTORE_MBEDOS_20161012_02` Ask SamG for mbedOS. Ask MarcusS for other platform OSs. Equally applicable to Zephyr or a.n.other platformOS.
 
@@ -756,7 +756,7 @@ thread using the CFSTORE async callback programming model using C.
 
 - `REQ_CFSTORE_MBEDOS_20160810_11`. Ask SamG/RohitG/SimonH/MarcusS/. suggest removing this requirement as should be superceded by requirement that all stroage drivers support async mode and there isnt a sync mode that can be switched on via compilation.
 
--`REQ_CFSTORE_MBEDOS_20160810_12`. propose accepting as general engineering requirement for cfstore.
+- `REQ_CFSTORE_MBEDOS_20160810_12`. propose accepting as general engineering requirement for cfstore.
 
 - `REQ_CFSTORE_THREAD_20160811_01`. Ask all other stakeholders and MarcusS/SimonF to arbitrate to resolution. propose accepting this requirement and progressing with off-chip storage solutions.
 
