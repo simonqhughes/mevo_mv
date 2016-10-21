@@ -1,7 +1,7 @@
 # Configuration Store Requirements ARC Meeting 21061019
 Author: Simon Hughes
-Document Version: 0.01
-
+Document Version: 0.02
+last updated: 20161021
 
 # Overview
 
@@ -26,6 +26,12 @@ Notes/thoughts captured from:
 - Bottom out important Provisioning use cases for secure storage of keys/certs.
 - Implement CFSTORE C-HAL2 Mux/Demux API for supporting multiple overlying clients. API will be async as per C-HAL.
 - Implement PlatformOS CFSTORE Wrapper (17) for mbed-os as FileSystemLike C++ API.
+- CFSTORE Remove SRAM Limitation
+- Iterate cfstore requirements doc to next version including all clarifications.
+- Priorities for CFSTORE
+    - multiuser support i.e. C-HAL2 Mux/Demux API implementation
+    - removing SRAM limitation.
+    - mbedOS C++ wrapper (filesystem interface).
 
 
 ### Secondary Conclusions:
@@ -59,13 +65,18 @@ Notes/thoughts captured from:
  - A clean storage driver interface doesnt exist in mbedOS at the moment. Explore sdcard, 
    usbhost and semi-hosting interfaces which appear to provide block storage.
    
-- CFSTORE upper edge. the c-hal3 interface. This cant easily be a file system interface because
-    - fopen() doesnt specify upfront the size that the file will be for the 
-      rest of its life, and there is no easy way for the file interface
-      to specify this. fioctl()-like thing may be able to specify size 
-      after the fact, but this is unacceptbly clunky.
-    - there isn't the concept of file security traits (key descriptor) with where the key 
-      can have different security levels.
+- CFSTORE upper edge. the c-hal3 interface. 
+    - This cant easily be a file system interface because
+        - fopen() doesnt specify upfront the size that the file will be for the 
+          rest of its life, and there is no easy way for the file interface
+          to specify this. fioctl()-like thing may be able to specify size 
+          after the fact, but this is unacceptbly clunky.
+        - there isn't the concept of file security traits (key descriptor) with where the key 
+          can have different security levels.
+    - however, could me made to look similar e.g. optionally have a default KV size of 32 bytes but
+      let the size be set by the size of the first write (permissible with a NULL buffer).
+    - but, what about the kdesc?  
+      
   
 - CFSTORE lower edge (call it C-HAL0). Better define a bottom edge for CFSTORE because:  
  - can make it a block interface for simplicity (read, write, erase, commit, etc).
@@ -211,4 +222,7 @@ Design Assumptions:
         - clarify the interface so that the callback notifier is invoked even when the API call completes
           all processing synchronously.
         
-        
+- CFSTORE Remove SRAM Limitation
+    - off-chip support will provide large storage areas (>> available SRAM). 
+    - SRAM limitation means these cant be accessed with current SRAM limitation.     
+    - hence remove SRAM limitation.
