@@ -26,14 +26,11 @@ This document describes the CFSTORE high level design to remove the SRAM Limitat
 
 # Design Overview
 
-# insert picture link.
-
 <p align="center">
   <img src="pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig1.jpg"/>
 </p>
 
-\image html ARM_MBED_SW_HLD_0001_cfstore_lld_fig1.jpg "Title for picture"
-
+![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig1.jpg "Logo Title Text 1")
 
 - The design uses a new Flash Journal alogorithm (strategy) (insert picture from jpg for 20161109_1):
     - algorithm will have N slots e.g. 4 slots.
