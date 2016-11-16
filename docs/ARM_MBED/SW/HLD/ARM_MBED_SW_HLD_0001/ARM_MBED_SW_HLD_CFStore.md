@@ -402,7 +402,7 @@ The type 1 TLVs appear in both snapshot and delta slots.
 The tail accompanying a type 1 header uses a 32 bit CRC as shown in [KV TLV generic tail](#kv-tlv-generic-tail) section.
 
 
-#### <a name="wrapping-of-the-sequence-number"> Wrapping of the SEQUENCE-NUMBER
+#### <a name="wrapping-of-the-sequence-number"></a> Wrapping of the SEQUENCE-NUMBER
 
 The wrapping of the SEQUENCE-NUMBER field is handled in the following way:
 
@@ -417,117 +417,111 @@ The wrapping of the SEQUENCE-NUMBER field is handled in the following way:
 
 ### <a name="storage-of-kv-read-write-locations-and-reference-counting"></a> Storage of KV Read/Write Locations and Reference Counting
 
-For each open KV descriptor (hkey), the opaque hkey buffer is used by CFSTORE as an implementation storage area:
+For each open KV descriptor (hkey), the opaque hkey buffer is used an implementation storage area:
 
-- The hkey is used to store a cfstore_file_t data structure.
-- cfstore_file_t stores:
+- The hkey is used to store a `cfstore_file_t` data structure which includes the following attributes:
     - The KVID of the open KV.
     - The KV read location rlocation.
     - The KV write location wlocation.
-- The cfstore_file_t instances form nodes in the file_list linked list of open files. 
-- When a KV is opened multiple times (e.g. by multiple clients each accessing the same KV) then multiple cfstore_file_t entries will appear in the file_list 
+- The `cfstore_file_t` instances are nodes in the linked list of open files (`file_list`). 
+- When a KV is opened multiple times (e.g. by multiple clients each accessing the same KV) then multiple `cfstore_file_t` entries will appear in the `file_list` 
   with the same KVID.
-- The file_list is used to generate a reference count of the number of open KV descriptors for a particular KV by counting the nodes with the KV KVID appearing in the file_list.
-  In the case that a client deletes a KV, the KV is only deleted when the last open KV descriptor using the KV is closed, and the reference count falls to 0.
+- The `file_list` is used to generate a reference count of the number of open KV descriptors for a particular KV by counting the nodes with the same KVID appearing in the `file_list`.
+  In the case that a client deletes a KV, the KV is only deleted when the last open KV descriptor using the KV is closed (i.e. remove from the `file_list`), and the reference count falls to 0.
 
 
-### <a name="creating-a-new-kv"></a> Creating a New KV
+### <a name="creating-a-new-kv"></a> Creating a New KV (CFSTORE Create() API Method)
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_create.jpg "unseen title text")
 **Figure 8. Creating a New KV.**
 
 The above figure shows the operations performed to create a new KV.
 
-- Initially, there is a snapshot present which contains {KV1, KV2, KV3, KV4, KV5}. 
-- When CFSTORE Create() is called, the key name and size of the KV are specified. 
-    - A cfstore_file_t structure is allocated within the hkey buffer, or from a statically allocated SRAM pool of structures.
+- Consider the situation where the snapshot contains KVs {KV1, KV2, KV3, KV4, KV5} (see the figure above). 
+- When CFSTORE Create() is called to create KV6, the key name and size of the KV are specified. 
+    - A `cfstore_file_t` structure is initialised within the hkey buffer, and inserted into the `file_list`.
     - The size of the full TLV representation needed to store the KV is calculated from the supplied data i.e. `size = sizeof(header)+sizeof(tail)+key_name_length+value_data_length)`.
-    - The space size for the KV TLV is allocated in the delta slot.
+    - The space size for the KV TLV is allocated in the delta slot (see (1) in the figure above).
     - The header and the key name part of the payload are written.
-    - See (1) in the above figure which shows the creation of the KV6 attribute in the delta slot.
-- When CFSTORE Write() is called, the client supplies a data buffer and the length of the data to be written (see (2) in the above figure).
+- When CFSTORE Write() is called, the client supplies a data buffer and the length L of the data to be written (see (2) in the figure above).
     - CFSTORE writes the data to NV store. The supplied data should be padded to be a multiple of PU size (the minimum write size). If not CFSTORE 
-      will write only a multiple of PU bytes.
-- When the KV is closed the tail is written in the KV commit the data. 
-- Once the KV has been closed it may be opened for writing again. This will cause a new version of the KV TLV to be present in the delta slot.
+      will write only a multiple of PU bytes, and report to the client that n < L bytes of data have been written.
+- When the KV is closed the tail is written in the KV commit the data (see (3) in the above figure). 
+    - The `cfstore_file_t` structure removed from the `file_list`.
+- Once the KV has been closed it may be opened again for writing. This will cause a new version of the KV TLV to be created in the delta slot.
 
 
-### <a name="deleting-a-kv"></a> Deleting a KV
+### <a name="deleting-a-kv"></a> Deleting a KV (CFSTORE Delete() API Method)
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_delete.jpg "unseen title text")
 **Figure 9. Deleting a  KV.**
 
 The above figure shows the operations performed to delete a KV.
 
-- The last full TLV representation of the KV is found. This may appear in a snapshot or delta slot.
-- The VALID field (previously set to the erase value at during the last sector erase operation) is set to complement of the erase value. The KV TLV then becomes invalid and will be ignored.
+- The last full TLV representation of the KV is found. When an existing KV is opened for deleting, the latest version of the TLV may be found in a snapshot or delta slot.
+- The tail VALID field (previously set to the erase value during the last sector erase operation) is set to complement of the erase value (see (1) and (2) in the figure above). 
+  The KV TLV then becomes invalid and will be ignored.
 - At a suitable point during system operation (e.g. when a CFSTORE Flush() operation is performed) the previous snapshot slot and delta slot(s) are used to create a new snapshot slot. The new snapshot slot contains
   a full representation of all the valid TLVs not including the deleted TLVs. The old snapshot slot will be erased and used to create the next snapshot version at some future point in time. This scheme garbage
   collects the deleted TLVs at the expense of periodically consolidating valid KV TLVs in a snapshot image.
   
 
-### <a name="opening-an-existing-kv-for-reading"></a> Opening an Existing KV for Reading
+### <a name="opening-an-existing-kv-for-reading"></a> Opening an Existing KV for Reading (CFSTORE Open(Read-Only) API Method)
 
 - For this operation, its not necessary to log any new entries in the delta slot.
-- When an existing KV is opened for reading, the latest version of the KV TLV is found. This may be in the preceding snapshot or delta slots.
-    - A cfstore_file_t structure is allocated within the hkey buffer, or from a statically allocated SRAM pool of structures.
-- When the client performs a CFSTORE Read() operation, the KV data is read into the supplied buffer from the location indicated by the current value of the rlocation position. 
-    - The cfstore_file_t rlocation position is updated after receiving the data from the storage driver.
-- When the client performs a CFSTORE Rseek() operation, the cfstore_file_t::rlocaton attribute is updated.
-- Multiple readers can read the underlying KV TLV data simultaneously. Each client maintains a cfstore_file_t::rlocaton attribute independent of other clients.
-- When the client performs a CFSTORE Close() the cfstore_file_t structure is returned to the client/returned to the pool.
+- When an existing KV is opened for reading, the latest version of the TLV may be found in a snapshot or delta slot. The latest version will have a valid CRC/HMAC code and the latest SEQUENCE-NUMBER.
+    - A `cfstore_file_t` structure is initialised within the hkey buffer and inserted into the `file_list`. The rlocation is set to 0.
+- When the client performs a CFSTORE Read() operation, the KV data is read into the client supplied buffer from the location indicated by the current value of the rlocation position. 
+    - The `cfstore_file_t` rlocation position is updated after receiving the data from the storage driver by the number of read bytes of data.
+- When the client performs a CFSTORE Rseek() operation, the `cfstore_file_t`::rlocaton attribute is updated to the new position.
+- Multiple readers can read the underlying KV TLV data simultaneously. Each client maintains a `cfstore_file_t::rlocaton` attribute independent of the other clients.
+- When the client performs a CFSTORE Close() the `cfstore_file_t` structure is removed from the `file_list`.
 
 
-### <a name="opening-an-existing-kv-for-reading-writing"></a> Opening an Existing KV for Reading/Writing
+### <a name="opening-an-existing-kv-for-reading-writing"></a> Opening an Existing KV for Reading/Writing (CFSTORE Open(RW) API Method)
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_open.jpg "unseen title text")
 **Figure 10. Opening an existing KV for reading/writing.**
 
-
 - For this operation, a new version of the TLV is created in the delta slot.
 - When an existing KV is opened for reading and writing, the latest version of the KV TLV is found. 
     - The latest version of the TLV may be found in the previous snapshot (see (1) in the above figure) or in a delta slot. The latest version will have a valid CRC/HMAC code and the latest SEQUENCE-NUMBER.
-    - A cfstore_file_t structure is allocated within the hkey buffer, or from a statically allocated SRAM pool of structures.
+    - A `cfstore_file_t` structure is initialised within the hkey buffer (rlocation = 0, wlocation = 0) and inserted into the `file_list`.
     - The size of the full TLV representation needed to store the KV is calculated from the supplied data i.e. `size = sizeof(header)+sizeof(tail)+key_name_length+value_data_length)`.
-    - The space size for the KV TLV is allocated in the delta slot.
+    - The space size for the KV TLV is allocated in the delta slot. See (1) in the figure above which shows the opening of a pre-existing KV in a snapshot slot and the creation of the new full TLV representation in the delta slot.
     - The header and the key name part of the payload are written.
-    - See (1) in the above figure which shows the opening of a pre-existing KV in a snapshot slot and the creation of the new full TLV representation in the delta slot.
-- When the client performs a CFSTORE Read() operation, the KV data is read into the supplied buffer from the location indicated by the current value of the rlocation position. 
-    - The cfstore_file_t rlocation position is updated after receiving the data from the storage driver.
-    - When the client performs a CFSTORE Rseek() operation, the cfstore_file_t::rlocaton attribute is updated.
+- When the client performs a CFSTORE Read() operation, the KV data is read into the client supplied buffer from the location indicated by the current value of the rlocation. 
+    - The `cfstore_file_t` rlocation position is updated after receiving the data from the storage driver.
+    - When the client performs a CFSTORE Rseek() operation, the `cfstore_file_t`::rlocaton attribute is updated.
 - When CFSTORE Write() is called, the client supplies a data buffer and the length of the data to be written (see (2) in the above figure).
-    - The cfstore_file_t wlocation position defaults to 0, and cannot be set with a seek operation. It is updated after writing data to storage.
-    - CFSTORE writes the data to NV store. The supplied data should be padded to be a multiple of PU size (the minimum write size). If not CFSTORE 
-      will write only a multiple of PU bytes.
-- Multiple readers/writers can read/write the underlying KV TLV data simultaneously. Each client maintains  and cfstore_file_t::wlocaton attributes independently of other clients.
-- When the KV is closed the tail is written in the KV commit the data. See (3) in the above figure. The previous version of the TLV is then invalidated by setting the tail VALID field to the complement of the erase value.
-    - When the client performs a CFSTORE Close() the cfstore_file_t structure is returned to the client/returned to the pool.
-- Once the KV has been closed it may be opened for writing again. This will cause a new version of the KV TLV to be present in the delta slot (see (4) in the above figure).
+    - The `cfstore_file_t` wlocation position defaults to 0, and cannot be set with a seek operation. It is updated after writing data to storage.
+    - CFSTORE writes the data to the NV store. The supplied data should be padded to be a multiple of PU size (the minimum write size). If not CFSTORE 
+      will write only a multiple of PU bytes, and report to the client that n < L bytes of data have been written.
+- Multiple readers/writers can read/write the underlying KV TLV data simultaneously. Each client maintains `cfstore_file_t`::wlocation attributes independently of the other clients.
+- When the KV is closed the tail CRC/HMAC is written to commit the data (see (3) in the figure above). The previous version of the TLV is then invalidated by setting the tail VALID field to the complement of the erase value.
+    - When the client performs a CFSTORE Close() the `cfstore_file_t` is removed from the `file_list`.
+- Once the KV has been closed it may be opened for writing again. This will cause a new version of the KV TLV to be created in the delta slot (see (4) in the above figure).
 
 
-### <a name="flush-operation"></a> Flush Operation
+### <a name="flush-operation"></a> Flush Operation (CFSTORE Flush() API Method)
 
 The CFSTORE Flush() operation does the following:
 
-- The current delta slot is committed by writing the tail of the Flash Journal Slot.
+- The current delta slot is committed by writing the tail of the Flash Journal slot.
 - The oldest snapshot slot is erased in preparation for receiving the new snapshot data.
-- The latest versions of valid KV TLVs are found in the latest snapshot and delta slots. A new version is written in the new snapshot so that there will be no deleted TLVs present.
+- The latest versions of valid KV TLVs are found in the latest snapshot and delta slots. A new version is written in the new snapshot in which there will be no deleted TLVs present.
 - The new snapshot flash journal tail will be written, committing the snapshot data.
 
 
 ### <a name="synchronous-mode-of-operation"></a> Synchronous Mode of Operation.
 
-The design supports a synchronous interface implementation.
+The design supports a synchronous interface implementation. See the CFSTORE [HLD for the API design][CFSTORE_HLD] for more information.
 
 
 ### <a name="asynchronous-mode-of-operation"></a> Asynchronous Mode of Operation
 
-The design supports an asynchronous interface implementation. The asynchronous KV read operation proceeds as follows:
+The design supports an asynchronous interface implementation. See the CFSTORE [HLD for the API design][CFSTORE_HLD] for more information.
 
-- On a KV open for read-only access, a KVBUF is attached to the KV file descriptor.
-- The KV is found in the latest snapshot and the value data read into the KVBUF.
-- The delta snapshots subsequent to latest snapshot are searched and applied to the KVBUF to yield the current state of the KV value data.
- 
 
 ### <a name="static-sram-buffers-kvbufs"></a> Static SRAM Buffers (KVBUFs)
 
@@ -535,20 +529,21 @@ This design has the following implications regarding the SRAM footprint.
  
 - SRAM is not required to support read/write transactions for the following reasons:
     - For a read operation, the ownership of the client read buffer (to receive data) is passed to CFSTORE until the transaction has been completed (either the read data returned, or an error indicated). 
-      The buffer (or part thereof) is passed to the storage driver to receive the data, and then returned to the client.
+      CFSTORE passes ownsership of the buffer (or part thereof) to the storage driver to receive the data. Once the data has been read into the buffer, the storage driver returns buffer ownership to CFSTORE, which returns it to the client.
     - For a write operation, the ownership of the client write buffer (with data to store) is passed to CFSTORE until the transaction has been completed (either the data has been written or an error indicated). 
-      The buffer (or part thereof) is passed to the storage driver to indicate the data to be written. Once written, ownership of the buffer is returned to the client.
+      CFSTORE passes ownsership of the buffer (or part thereof) to the storage driver to indicate the data to be written. Once written, the storage driver returns buffer ownership to CFSTORE, which returns it to the client.
 - SRAM is required to support multiple clients concurrently issuing read/write requests:
-    - CMSIS storage driver transactions have to be serialised i.e. only 1 outstanding transaction can be outstanding at any time, and the transaction has to complete before another transaction initiated. 
-    - For an open KV, there may be an associated statically allocated SRAM buffer known as a KVBUF for queueing read/write transactions to the storage driver.
+    - CMSIS storage driver transactions are serialised i.e. only 1 outstanding transaction can be outstanding at any time, and the transaction has to completed before another transaction initiated. 
+    - For an open KV, there may be an associated statically allocated SRAM buffer known as a KVBUF, for queueing read/write transactions to the storage driver.
     - The KVBUF is used to queue a client request e.g.:
+        - For inserting the request into a linked list of pending storage driver transactions.
         - For storing context data for a future transaction until it can be issued to the storage driver.
         - For storing completion/event notification data. When CFSTORE is notified of the completed transaction by the storage driver, 
           the original request is found in the queue so that it can be appropriately completed to the CFSTORE client.
 - For example, the KVBUF may be ~16-32 bytes, and there may be ~64 KVBUFs. So the typical SRAM footprint is ~2kB. 
 - Dimensioning of the SRAM buffer should take into account:
-    - the size of the flash optimal program unit (1024 bytes on K64F)
-    - the size of the flash program unit (8 bytes on K64F) i.e. the KVBUF size should be a multiple of the program unit.
+    - The size of the flash optimal program unit (1024 bytes on K64F).
+    - The size of the flash program unit (8 bytes on K64F) i.e. the KVBUF size should be a multiple of the program unit.
     - The total SRAM footprint.
     - The maximum number of concurrently open KVs.
   
@@ -569,12 +564,13 @@ In the case that the programming of data to a particular flash sector fails, the
 
 This section describes features that can be added to the basic design to enhance operation and performance. Additional features includes:
 
-- Write location seek support for setting the write location within a file.
+- Write location seek support for setting the write location within a KV.
+- Wear Levelling.
 
 
 ## <a name="write-location-seek-support"></a> Write Location Seek Support
 
-The CFSTORE API specification has the limitation that the write location does not support seeking:
+The current version of the CFSTORE API specification has the limitation that the write location does not support seeking:
 
 - When a file is opened for writing, the write location (wlocation) is set to 0, i.e. to the beginning of the KV value data.
 - As data is written to the KV value data field, wlocation is incrementally updated reflecting data that has been written. No Wseek() method exists in the CFSTORE API, so wlocation cannot be changed
@@ -590,8 +586,8 @@ which the feature described in this section seeks to address.
 **Figure 11. Type 2 TLV Header format incremental write operations.**
 
 
-Seeking wlocation is implemented by defining a new TLV type for incremental writes (Type = 2 header). Figure 9 shows the fields in the header, where the definition of the following 
-fields has been defined previously in the [KV TLV Header Type 1](#kv-tlv-header-type-1) section:
+Seeking wlocation is implemented by defining a new TLV type for incremental writes (Type = 2 header). The above figure shows the fields in the header including the following 
+fields previously defined in the [KV TLV Header Type 1](#kv-tlv-header-type-1) section:
 
 - Version field (~4 bits). 
 - Reserved field (~4 bits). 
@@ -611,42 +607,42 @@ The wlocation field is defined as follows:
 **Figure 12. Sequence of incremental write operations.**
 
 
-The figure above illustrates how the incremental write TLV is used in conjunction with the full TLV to support seeking wlocation:
+The figure above shows how KV write location seeking is implemented using the incremental write TLV and the full TLV representation:
 
 - When a KV is opened for reading and writing, space for a new full TLV representation of the KV is reserved in the delta slot. See (1) in the figure. 
-    - Upon opening, the header fields, key name and size of the KV are known, so these data can be created and stored in flash. The setting of the 
-      header TLV length fields means the TLV can be "walked over" to the next TLV's (e.g. the incremental write TLVs) so that new TLVs can be written
-      in the journal, before the full TLV tail CRC has been written.
-    - The header SEQUENCE_NUMBER is set to i.  
+    - The latest version of the TLV may be found in the previous snapshot or in a delta slot. The latest version will have a valid CRC/HMAC code and the latest SEQUENCE-NUMBER.
+    - A `cfstore_file_t` structure is initialised within the hkey buffer (rlocation = 0, wlocation = 0) and inserted into the `file_list`.
+    - The size of the full TLV representation needed to store the KV is calculated from the supplied data i.e. `size = sizeof(header)+sizeof(tail)+key_name_length+value_data_length)`.
+    - The space size for the KV TLV is allocated in the delta slot. 
+    - The header and the key name part of the payload are written. The header SEQUENCE_NUMBER is set to i.  
 - The subsequent write operations are recorded in the delta slot with incremental write TLVs. 
-    - The incremental write TLVs (write deltas) are stored after the full TLV described in the previous point.
+    - The incremental write TLVs (write deltas) are stored after the full TLV described above.
     - The header SEQUENCE_NUMBER is set to j where j > i.  
-    - The cfstore_file_t::wlocation variable is updated accordingly after each incremental write.
-    - The above figure shows the 3 incremental write operations at (2), (3) and (4). The sequence numbers are ordered such that j4 > j3 > j2 > i.
+    - The `cfstore_file_t`::wlocation variable is updated accordingly after each incremental write.
+    - The above figure shows 3 incremental write operations at (2), (3) and (4). The sequence numbers are ordered such that j4 > j3 > j2 > i.
     - Multiple writers can be writing data to the same KV. Each writer contributes incremental writes independently, but they are all used to create a new version of the full TLV data.
-- Read operations first read the original KV TLV snapshot data into the client receive buffer. The delta write operations for this KV are then applied on top of the original TLV data into the client receive buffer. 
+- Read operations first read the original KV TLV snapshot data into the client receive buffer. The delta write operations for this KV are then applied on top of the original TLV data in the client receive buffer. 
   This re-creates the current version of the value data, which is returned to the client.
 - When the TLV is closed ((see (6) in the above figure, no more writes to be made), the new state of the TLV is recorded in the space allocated for the full TLV. In a loop:
     - A data window (e.g. 256 bytes, a multiple of the PU size) is read from the snapshot TLV into an SRAM buffer, the first data window being read from the start of the TLV data.
-    - The incremental writes updating value data inside the data window are applied to the buffer.
+    - The incremental writes updating value data inside the data window are applied to the buffer. 
+      With reference to the above figure, events (6), (7) and (8) show the incremental write data being recorded in the full TLV. 
     - The buffer is then written to the full TLV.
     - The loop is repeated for the next data window worth of data until the full TLV data payload has been written.
     - Once the payload has been written, the full TLV tail is written committing the new version of the TLV. The incremental write TLVs are then deleted.
-- With reference to the above figure, events (6), (7) and (8) show the incremental write data being recorded in the full TLV. The CRC is then written  
-  for the full TLV (9) committing the data. The incremental TLVs are then deleted by setting the VALID field in the tails to 0x00 (see events (10), (11) and (12)).
+      The CRC is then written for the full TLV (9) committing the data. 
+    - The incremental TLVs are then deleted by resetting the VALID field in the tail (see (10), (11) and (12) in the figure above).
   
 The above operation has been specified such that if device experienced a power failure at any point during the sequence of operations then the KV data stored in flash remains in a consistent state
-from which the device software can recover the data. 
-
-If the power fails during the above operation then upon restarting the system falls back to the latest version of the full TLV representing the KV data. 
+from which the device software can recover the data. If the power fails during the above operation then upon restarting the system falls back to the latest version of the full TLV representing the KV data. 
 The latest version is the one with the most recent sequence number. 
 
 - If the power fails prior to event (9) then the system will fall-back to the previous full TLV version e.g. the version stored in the last snapshot slot. 
-  The incremental write TLVs will be ignored (they may be deleted on CFSTORE initialisation) and the 3 data incremental write operation will be lost.
+  The incremental write TLVs will be ignored (they may be deleted on CFSTORE initialisation) and the 3 data incremental write operations will be lost.
 - If the power fails after event (9) but prior to deleting the incremental write TLVs, then the system will fall-back to using the new full TLV version created with the incremental write deltas. The 
-  undeleted incremental write TLVs will be ignores (they may be deleted on CFSTORE initialisation).
+  undeleted incremental write TLVs will be ignored (they may be deleted on CFSTORE initialisation).
 
-Note that at initialisation, undeleted incremental write TLVs in a delta slot may be deleted.
+Note that at initialisation, undeleted incremental write TLVs in a delta slot may be deleted or ignored.
 
 
 ## <a name="wear-levelling"></a> Wear Levelling
@@ -655,11 +651,11 @@ This feature is currently under development. Thoughts include:
 
 - When a program data operation to a sector fails, the sector is marked bad and taken out of service.
     - Bad sectors are recorded in flash journal meta data.
-- The max KV attribute size is restricted to N x sector-size e.g. n = 2, or n = 4. On K64F, the max attribute size would be 4kB (N=2) or 8kB (N=4).
+- The KV attribute size is restricted to N x sector-size e.g. n = 2, or n = 4. On K64F, the max attribute size would be 4kB (N=2) or 8kB (N=4).
 - A flash journal slot is composed of a set of storage blocks. 
     - A block corresponds to N sectors forming a physical address range with no holes (i.e. contiguous). 
-    - A block contains no bad blocks.
-    - If a bad sector is detected in a block, the block is split into 2 sub-blocks, with the bad block missing from both sub-blocks.
+    - A block contains no bad sectors.
+    - If a bad sector is detected in a block, the block is split into 2 sub-blocks, with the bad sector missing from both sub-blocks.
         - The original block is detached from the slot.
         - The bad sector is recorded in the journal meta data.
         - The 2 sub-blocks are attached to slot and managed like the other blocks.
