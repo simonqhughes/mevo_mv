@@ -1,28 +1,32 @@
 # Configuration Store High Level Design: Design For Removing SRAM Limitation
 
+Contributors: Sam Grove, Rohit Grover, Simon Hughes, Erez Landau, Milosch Meriac
+
 Author: Simon Hughes
 
 Document Version: 0.01
 
-Date 20161110
+Date: 20161116
+
+Status: DRAFT
 
 # <a name="introduction"></a> Introduction
 
 ## <a name="overview"></a> Overview
 
-This document describes the CFSTORE high level design to remove the SRAM Limitation.
+This document describes the CFSTORE High Level Design (HLD) to remove the SRAM Limitation.
 
 - There is a pre-existing CFSTORE [HLD for the API design][CFSTORE_HLD]. Please refer to that document before reading this document.
-- The current document describes a new HLD for the implementation of the API with minimal SRAM footprint.
+- The current document describes a new HLD for the implementation of the API requiring minimal SRAM.
     
 
-## <a name="goals-of-the-new-design"></a> Goals of the New Design
+## <a name="cfstore-current-design-and-implementation-status"></a> CFSTORE Current Design and Implementation Status
 
-The implementation uses the system heap to store a full SRAM image of all stored KV attributes prior to committing to NV store. 
+The current CFSTORE design and implementation uses the system heap to store a full image of all stored Key Value (KBV) attributes prior to committing to the NV store. 
 
 - When the CFSTORE Flush() operation is performed, the SRAM image is copied to NV store.
-- When the CFSTORE Initialize() operation is performed, the NV store KV data image is loaded into to SRAM heap memory which is allocated when the size of the NV store image is determined.
-- When the CFSTORE Uninitialize() operation is performed, the SRAM heap memory is deallocated back to the system.
+- When the CFSTORE Initialize() operation is performed, the NV store KV data image is loaded into SRAM which is allocated when the size of the NV store image is determined.
+- When the CFSTORE Uninitialize() operation is performed, the heap memory is deallocated back to the system.
 - When the CFSTORE Read() operation is performed, KV data is read from the SRAM image.
 - When the CFSTORE Write() operation is performed, KV data is written to the SRAM image.
 - Changes to the KV SRAM image (e.g. through write() operations) must be persisted to the NV store using the flush() operation prior to the calling of Uninitialize(), otherwise the changes will be lost.
@@ -31,11 +35,13 @@ The limitations of the above scheme are as follows:
 
 - System heap usage is unbounded, and will continue to grow until the system runs out of memory. 
 - System heap usage grows as the total size of stored data grows.
-- The size of flash store used is limited to the available SRAM that can be dedicated to CFSTORE usage. For example, if 32kB of SRAM is dedicated to CFSTORE KV image use, then only 32kB of the NV store can be used.
+- The size of NV store used is limited to the available SRAM that can be dedicated to CFSTORE usage. For example, if 32kB of SRAM is dedicated to CFSTORE KV image use, then only 32kB of the NV store can be used.
   (Note, a larger NV store footprint will occur as Flash Journal uses additional NV storage to maintain multiple versions of attributes).
 
 
-The goals of the new design and implementation are as follows:
+## <a name="goals-of-the-new-design"></a> Goals of the New Design
+
+The goals of the new design are as follows:
 
 - To reduce the SRAM footprint to 2-4kB.
 - For SRAM usage to be bounded, i.e. the implementation should use statically allocated data buffers rather than using the heap.
@@ -45,26 +51,28 @@ The goals of the new design and implementation are as follows:
 
 ## <a name="document-structure-and-layout"></a> Document Structure and Layout
 
-The layout of the document described in this section.
+The layout of the document is described in this section.
 
-The first chapter of the document provides an [introduction](#introduction) describing a summary [overview](#overview) and the [goals of the new design](#goals-of-the-new-design).
-The chapter also includes the [terminology](#terminology) used throughout the document.
+The first chapter of the document provides an [introduction](#introduction) describing a summary [overview](#overview), 
+the [status of the current design](#cfstore-current-design-and-implementation-status) and the [goals of the new design](#goals-of-the-new-design).
+The chapter also includes [outstanding issues](#outstanding-issues) with this document and the [terminology](#terminology) used throughout the document.
 
 The next chapter describes the [basic design](#basic-design-overview) features which minimise the use of SRAM, beginning with an overview of the [CFSTORE storage software stack](#cfstore-storage-software-stack).
-The design uses a [modified version of the flash journal](#kvs-are-stored-using-modified-flash-journal) to store key value attributes in a [Type Length Value representation](#tlv-structure).
-The TLV format is described in detail including a description of the [generic header format](#kv-tlv-generic-header), the [TLV tail](#kv-tlv-tail) and the [KV full TLV representation header](#kv-tlv-header-type-1).
+The design uses a [modified version of the flash journal](#kvs-are-stored-using-modified-flash-journal) to store key value attributes in a [Type Length Value (TLV) representation](#tlv-structure).
+The TLV format is described in detail including a description of the [generic header format](#kv-tlv-generic-header), the [TLV tail](#kv-tlv-tail) and the [KV full TLV representation](#kv-tlv-header-type-1).
 
-The next chapter describes the [CFSTORE API operations](#cfstore-operation) with respect to the basic design.
+The next chapter describes the [CFSTORE API operations](#cfstore-operation) with respect to the basic design:
 
 - [Section 1](#storage-of-kv-read-write-locations-and-reference-counting) describes how the KV read and write locations are stored in the KV hkey descriptor, and how reference counting operations are implemented.
-- [section 2](#creating-a-new-kv) describes how a new KV is created in flash.
+- [Section 2](#creating-a-new-kv) describes how a new KV is created in NV store.
 - [Section 3](#deleting-a-kv) describes how a KV is deleted my resetting the VALID field in the tail to a non-erase value.
-- [Section 4](#opening-an-existing-kv-for-reading) describes the how an existing KV is opened for reading. 
-- [Section 5](#opening-an-existing-kv-for-reading-writing) describes the how an existing KV is opened for reading and writing. 
-- [Section 6](#flush-operation) describes the how the CFSTORE Flush() operation creates of a new snapshot of all valid TLVs, collecting garbage in the process.
+- [Section 4](#opening-an-existing-kv-for-reading) describes how an existing KV is opened for reading, and how data is read from NV store.
+- [Section 5](#opening-an-existing-kv-for-reading-writing) describes how an existing KV is opened for reading and writing, and how data is written to NV store.
+- [Section 6](#flush-operation) describes how the CFSTORE Flush() operation creates of a new snapshot of all valid TLVs, collecting garbage in the process.
 - [Section 7](#synchronous-mode-of-operation) describes how the design implements a synchronous mode of operation.
 - [Section 8](#asynchronous-mode-of-operation) describes how the design implements an asynchronous mode of operation.
-- [Section 9](#static-sram-buffers-kvbufs) describes the SRAM requirements to implement the design. SRAM is not required for read and write transactions, but is required for queueing transactions from multiple clients.
+- [Section 9](#static-sram-buffers-kvbufs) describes the SRAM requirements to implement the design. SRAM is not required for read and write transactions per-se (as client buffers are provided), 
+  but SRAM is required for queueing transactions from multiple clients.
 - [Section 10](#error-handling) describes error handling.
 
 The next chapter describes [feature enhancements](#enhanced-design-features) to the basic design:
@@ -77,9 +85,20 @@ The next chapter describes [feature enhancements](#enhanced-design-features) to 
 The final chapter lists useful [references](#references) to this document.
 
 
+## <a name="outstanding-issues"></a> Outstanding Issues With This Document
+
+The following lists the outstanding issues with this document:
+
+- The [error handling](#error-handling) design requires definition.
+- The [wear levelling](#wear-levelling) design requires defintion.
+- PAL aligmnment is required including:
+    - Storage of private keys.
+    - Factory KVs and associated behaviours.
+    
+
 ## <a name="terminology"></a> Terminology
 
-Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of terminology. For reference, the following terms are used extensively throughout this document.
+The following terms are used extensively throughout this document.
 
 - CFSTORE: Configuration Store.
 - HLD: High Level Design.
@@ -87,6 +106,7 @@ Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of 
 - PU: Program Unit. This is the minimum size data block write that can be programmed into a sector (e.g. the K64F PU size = 8 bytes).
 - TLV: Type Length Value.
 
+Please refer to CFSTORE [terminology document][CFSTORE_TERM] for a full list of definitions. 
 
 # <a name="basic-design-overview"></a> Basic Design Overview
 
@@ -132,14 +152,14 @@ Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of 
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  
 
     -- Storage_VM.h API (9) ---   ---- Flash_Journal.h API (10) ---------    --- OS SVM/FJ API (11) --
-     
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
-    | Storage Volume Manager (SVM) (7)|                                      |Platform-OS SVM Wrap   | (8)
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
 
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
     | Flash Journal (FJ) (5)                                            |    | Platform-OS FJ Wrapper| (6)   
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+     
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
+    | Storage Volume Manager (SVM) (7)|                                      |Platform-OS SVM Wrap   | (8)
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
 
     ------ Storage Driver API (CMSIS Storage Driver Interface) (3) ------    --- OS Storage API (4) --
     
@@ -155,36 +175,36 @@ Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of 
     
 ```
 
-**Figure 0. CFSTORE Storage Software Stack.**
+**Figure 1. CFSTORE Storage Software Stack.**
 
-The above figure is used to help understand the design described in this document
+The above figure illustrates the various software components in teh CFSTORE storage stack.
 
-- (1) Storage Driver. This entity is the implementation of the NV storage device driver.
-- (2) Platform OS Storage Driver Wrapper. This entity encapsulates the Storage Driver for integration within a Platform OS.
-- (3) Storage Driver API (CMSIS Storage Driver Interface). This entity is the portable storage driver API equating to the CMSIS Storage Driver Interface agreed with Kiel. 
-- (4) Platform OS Storage API. This entity is the Platform OS storage driver API.
-- (5) Flash Journal (FJ). This entity is the Flash Journal implementation.
-- (6) Platform OS Flash Journal Wrapper. This entity is the platform OS Flash Journal wrapper implementation.
-- (7) Storage Volume Manager. This entity is the storage volume manager which creates virtual partitions from a physical storage device so higher layer entities can share the device. 
-- (8) Platform OS Storage Volume Manager Wrapper. This entity is the platform OS encapsulation of the storage volume manager.
-- (9) Storage Volume Manager API(Storage_VM.h). This entity is the portable API for the Storage Volume Manager. 
-- (10) Flash Journal (Flash_Journal.h) API. This entity is the portable API for the Flash Journal.
-- (11) Platform OS Storage Volume Manager/Flash Journal Wrapper API. This entity is the platform OS encapsulation of the storage volume manager and flash journal APIs.
-- (12) Configuration Store. This entity is the implementation in C of the configuration store. 
-- (13) CFSTORE CMSIS C-HAL Interface. This entity is the portable CFSTORE interface (CMSIS aligned C-HAL).
+- (1) Storage Driver. This is the implementation of the NV storage device driver.
+- (2) Platform OS Storage Driver Wrapper. This encapsulates the Storage Driver for integration within a Platform OS.
+- (3) Storage Driver API (CMSIS Storage Driver Interface). This is the portable storage driver API equating to the CMSIS Storage Driver Interface agreed with Kiel. 
+- (4) Platform OS Storage API. This is the Platform OS storage driver API (optionally present).
+- (5) Flash Journal (FJ). This is the Flash Journal implementation which provides an abstraction from the underlying flash geometry, and the requirement to erase a sector prior to programming with new data.
+- (6) Platform OS Flash Journal Wrapper. This is the platform OS Flash Journal wrapper implementation (optionally present).
+- (7) Storage Volume Manager. This is the storage volume manager which creates virtual partitions from a physical storage device so higher layer entities can share the device. 
+- (8) Platform OS Storage Volume Manager Wrapper. This is the platform OS encapsulation of the storage volume manager (optionally present).
+- (9) Storage Volume Manager API(Storage_VM.h). This is the portable API for the Storage Volume Manager. 
+- (10) Flash Journal (Flash_Journal.h) API. This is the portable API for the Flash Journal.
+- (11) Platform OS Storage Volume Manager/Flash Journal Wrapper API. This is the platform OS encapsulation of the storage volume manager and flash journal APIs (optionally present).
+- (12) Configuration Store. This is the implementation in C of the configuration store. 
+- (13) CFSTORE CMSIS C-HAL Interface. This is the portable CFSTORE interface (CMSIS aligned C-HAL).
 - (14) Configuration Store (CFSTORE) Mux/Demux. This entity multiplexes/demultiplexes the calls from multiple overlying CFSTORE clients to the single user context of the underlying CMSIS layer. 
-- (15) CFSTORE C-HAL2 Mux/Demux Interface. This entity is the portable API to the CFSTORE Mux/Demux.
-- (16) Security Layer (uvisor). This entity is used to provide security for lower layers of the software stack.
-- (17) Platform-OS CFSTORE Wrapper. This entity provides the CFSTORE integration with the Platform OS. 
-- (18) CFSTORE C-HAL3 Interface. This entity is the portable interface to the secure CFSTORE. It is thought to be synonymous with the Portable Abstraction Layer (PAL)
-- (19) OS CFSTORE API. This is the platform OS encapsulation of CFSTORE.
+- (15) CFSTORE C-HAL2 Mux/Demux Interface. This is the portable API to the CFSTORE Mux/Demux.
+- (16) Security Layer (uvisor). This is used to provide security for lower layers of the software stack (secure box/context).
+- (17) Platform-OS CFSTORE Wrapper. This entity provides the CFSTORE integration with the Platform OS (optionally present). 
+- (18) CFSTORE C-HAL3 Interface. This is the portable interface to the secure CFSTORE. It is thought to be synonymous with the Portable Abstraction Layer (PAL)
+- (19) OS CFSTORE API. This is the platform OS encapsulation of CFSTORE (optionally present).
 - (20) mbed Cloud Client. This entity is the integration of the provisioning client, mbed client and the update service, for example. 
 
 
-## <a name="kvs-are-stored-using-modified-flash-journal"></a> KVs are stored Using Modified Flash Journal
+## <a name="kvs-are-stored-using-modified-flash-journal"></a> KVs Are Stored Using A Modified Flash Journal
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig1.jpg "unseen title text")
-**Figure 1. Flash Journal (modified) is used to support slots of different types and sizes.**
+**Figure 2. Flash Journal (modified) is used to support slots of different types and sizes.**
 
 - The design uses a new Flash Journal algorithm (strategy) (see the above figure):
     - KVs are stored as TLVs (similar to a linked list structure) within a slot.
@@ -265,14 +285,14 @@ Slots have the following characteristics:
  
 ```
 
-**Figure 1.1. Current Flash Journal implementation slot layout on flash, showing journal meta-data (taken `from flash_journal_strategy_sequential.h`).**
+**Figure 3. Current Flash Journal implementation slot layout on flash, showing journal meta-data (taken `from flash_journal_strategy_sequential.h`).**
         
 ## <a name="kv-storage-format"></a> KVs Storage Format
 
 ### <a name="tlv-structure"></a> TLV Structure
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_tlv_structure_overview.jpg "unseen title text")
-**Figure 2. Full TLV storage format for KV data.**
+**Figure 4. Full TLV storage format for KV data.**
 
 The above figure shows the format of the KV full TLV representation i.e. the format that includes both the key name and value data. This is composed of the following elements:
 
@@ -294,7 +314,7 @@ Note also the following:
 ### <a name="kv-tlv-generic-header"></a> KV TLV Generic Header
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_generic_header.jpg "unseen title text")
-**Figure 3. TLV generic header format.**
+**Figure 5. TLV generic header format.**
 
 
 The above figure shows the generic structure of the TLV header common to all KV TLV representations. The structure and field definitions are described in the following: 
@@ -310,7 +330,7 @@ The above figure shows the generic structure of the TLV header common to all KV 
 ### <a name="kv-tlv-tail"></a> KV TLV Tail
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_tail.jpg "unseen title text")
-**Figure 4. KV TLV tail format.**
+**Figure 6. KV TLV tail format.**
 
 The above figure shows the TLV tail format including the following fields:
 
@@ -345,7 +365,7 @@ The above figure shows the TLV tail format including the following fields:
 ### <a name="kv-tlv-header-type-1"></a> KV TLV Header Type 1: Full TLVs
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_header_type1.jpg "unseen title text")
-**Figure 5. TLV type 1 header format for the full TLV representation. Note that figure incorrectly shows Type = 0. **
+**Figure 7. TLV type 1 header format for the full TLV representation. Note that figure incorrectly shows Type = 0. **
 
 The fields of the KV header include the following:
 
@@ -401,7 +421,7 @@ For each open KV descriptor (hkey), the opaque hkey buffer is used by CFSTORE as
 ### <a name="creating-a-new-kv"></a> Creating a New KV
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_create.jpg "unseen title text")
-**Figure 6. Creating a New KV.**
+**Figure 8. Creating a New KV.**
 
 The above figure shows the operations performed to create a new KV.
 
@@ -422,7 +442,7 @@ The above figure shows the operations performed to create a new KV.
 ### <a name="deleting-a-kv"></a> Deleting a KV
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_delete.jpg "unseen title text")
-**Figure 7. Deleting a  KV.**
+**Figure 9. Deleting a  KV.**
 
 The above figure shows the operations performed to delete a KV.
 
@@ -448,7 +468,7 @@ The above figure shows the operations performed to delete a KV.
 ### <a name="opening-an-existing-kv-for-reading-writing"></a> Opening an Existing KV for Reading/Writing
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_open.jpg "unseen title text")
-**Figure 8. Opening an existing KV for reading/writing.**
+**Figure 10. Opening an existing KV for reading/writing.**
 
 
 - For this operation, a new version of the TLV is created in the delta slot.
@@ -554,7 +574,7 @@ This inability to seek the wlocation means there is a mismatch between the CFSTO
 which the feature described in this section seeks to address. 
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_incremental_write_header.jpg "unseen title text")
-**Figure 9. Type 2 TLV Header format incremental write operations.**
+**Figure 11. Type 2 TLV Header format incremental write operations.**
 
 
 Seeking wlocation is implemented by defining a new TLV type for incremental writes (Type = 2 header). Figure 9 shows the fields in the header, where the definition of the following 
@@ -575,10 +595,10 @@ The wlocation field is defined as follows:
 
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_incremental_write_ops.jpg "unseen title text")
-**Figure 10. Sequence of incremental write operations.**
+**Figure 12. Sequence of incremental write operations.**
 
 
-Figure 10 illustrates how the incremental write TLV is used in conjunction with the full TLV to support seeking wlocation:
+The figure above illustrates how the incremental write TLV is used in conjunction with the full TLV to support seeking wlocation:
 
 - When a KV is opened for reading and writing, space for a new full TLV representation of the KV is reserved in the delta slot. See (1) in the figure. 
     - Upon opening, the header fields, key name and size of the KV are known, so these data can be created and stored in flash. The setting of the 
