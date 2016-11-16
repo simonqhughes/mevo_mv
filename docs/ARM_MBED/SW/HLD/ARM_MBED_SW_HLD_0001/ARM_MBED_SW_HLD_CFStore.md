@@ -59,7 +59,7 @@ The chapter also includes [outstanding issues](#outstanding-issues) with this do
 
 The next chapter describes the [basic design](#basic-design-overview) features which minimise the use of SRAM, beginning with an overview of the [CFSTORE storage software stack](#cfstore-storage-software-stack).
 The design uses a [modified version of the flash journal](#kvs-are-stored-using-modified-flash-journal) to store key value attributes in a [Type Length Value (TLV) representation](#tlv-structure).
-The TLV format is described in detail including a description of the [generic header format](#kv-tlv-generic-header), the [TLV tail](#kv-tlv-tail) and the [KV full TLV representation](#kv-tlv-header-type-1).
+The TLV format is described in detail including a description of the [generic header format](#kv-tlv-generic-header), the [TLV tail](#kv-tlv-generic-tail) and the [KV full TLV representation](#kv-tlv-header-type-1).
 
 The next chapter describes the [CFSTORE API operations](#cfstore-operation) with respect to the basic design:
 
@@ -210,27 +210,10 @@ The above figure illustrates the various software components in teh CFSTORE stor
     - KVs are stored as TLVs (similar to a linked list structure) within a slot.
     - The algorithm will have N slots e.g. 4 slots.
     - Slots are of 2 types:
-        - Snapshot Slot. This slot contains a complete record of all the KVs in a TLV array. The TLVs used to represent the KVs are called use a TLV format that includes both the key name and value data in the TLV payload.
+        - Snapshot Slot. This slot contains a complete record of all the KVs in a TLV array. The TLV format includes both the key name and value data in the data payload.
         - Delta Slot. This slot contains TLVs that have been modified since the creation 
-          of the last snapshot. Modified KVs are recorded using the full TLV format for the specifically modified KVs. KVs that have not been modified are not represented in the delta slot.
+          of the last snapshot. Modified KVs are recorded using the full TLV format. KVs that have not been modified are not represented in the delta slot.
 
-Slots have the following characteristics:
-    
-- Slot boundaries are aligned to sector boundaries.
-- Slots have meta-data. There is a header at the start of the slot and a tail with CRC/HMAC at the end of the slot (the header and tail are not show in the above figure).
-- Slots can be of different sizes. It's advantageous for snapshot slots to be larger than
-  delta slots (e.g. snapshot slot = 256kB, delta slots = 16kB) because:
-    - The scheme can accommodate devices with mixed block sizes more easily e.g. STM devices with 4x16kB, 3x64kB, 1x128kB, 1x256kB.
-      as small sectors can be used for the deltas, and the large sectors can be used to store the entirety of the snapshot data.
-    - it's desirable that the snapshot slots use the large sectors so the total amount of stored data can be large e.g. 256kB.
-- Slots can be made up of multiple smaller sectors. 
-    - For example, on the K64F which has a 2kB sector size, a 256kB snapshot slot may be composed of 128x2kB sectors. 
-    - The slot may be composed of a set of non-contiguous storage address ranges rather than a one continuous address range. This permits errored sectors to be taken out of service.
-- Slots can be made up of 1 large sector. For example, the STM 42x (todo find data), has a 128kB sector which may be used for a snapshot slot.
-- Slot sectors are erased at the start of use of the slot. 
-- After the erase operation at the start of use, a delta slot will have multiple transactional writes successfully appended to a delta slot. This means that for every 1 erase operation, there can be many write
-  operations extending the overall life of the sector beyond 1 erase per write.
-    
     
 ```
 
@@ -285,7 +268,28 @@ Slots have the following characteristics:
  
 ```
 
-**Figure 3. Current Flash Journal implementation slot layout on flash, showing journal meta-data (taken `from flash_journal_strategy_sequential.h`).**
+**Figure 3. Current Flash Journal implementation slot layout on flash, showing journal meta-data (taken `from flash_journal_strategy_sequential.h`). 
+The format will be changes in the new implementation.**
+
+
+Slots have the following characteristics:
+    
+- Slot boundaries are aligned to sector boundaries.
+- Slots have meta-data. There is a header at the start of the slot and a tail with CRC/HMAC at the end of the slot (the header and tail are shown in the figure above).
+- Slots can be of different sizes. It's advantageous for snapshot slots to be larger than
+  delta slots (e.g. snapshot slot = 256kB, delta slots = 16kB) because:
+    - The scheme can accommodate devices with mixed block sizes more easily e.g. STM devices with 4x16kB, 3x64kB, 1x128kB, 1x256kB,
+      as small sectors can be used for the deltas and the large sectors can be used to store a complete record of valid KVs.
+    - It's desirable that snapshot slots use the large sectors so the total amount of stored data can be large e.g. 256kB.
+- Slots can be made up of multiple smaller sectors. 
+    - For example, on the K64F which has a 2kB sector size, a 256kB snapshot slot may be composed of 128x2kB sectors. 
+    - The slot may be composed of a set of non-contiguous storage address ranges (blocks) rather than a continuous address range. This permits errored sectors to be taken out of service.
+- Slots can be made up of 1 large sector. For example, the STM 429 has a 128kB sector which may be used for a snapshot slot.
+- Slot sectors are erased at the start of use of the slot. 
+- After the erase operation at the start of use, a delta slot will have multiple transactional writes appended to a delta slot. This means that for every erase operation, there can be many write
+  operations extending the overall life of the sector beyond 1 erase per write.
+    
+
         
 ## <a name="kv-storage-format"></a> KVs Storage Format
 
@@ -317,87 +321,96 @@ Note also the following:
 **Figure 5. TLV generic header format.**
 
 
-The above figure shows the generic structure of the TLV header common to all KV TLV representations. The structure and field definitions are described in the following: 
+The above figure shows the generic structure of the TLV header common to all KV TLV representations. The structure and field definitions are as follows: 
 
-- VERSION field (~4 bits). This field indicates the version of TLV header and data format (version 1 is described in this document).
-- RESERVED field (~4 bits). This field is reserved for future use.
-- TYPE field (~8 bits). Type = 1 indicates a full TLV representation which includes the key name and the value data. These TLVs may appear in snapshot and delta slots.
-- FLAGS field (~16 bits). This field includes permissions, for example, and the definition of the flags is determined by the TLV Type.
-- Additional fields are present depending on the value of the Type field.
-- PAD. The header is padded so the last byte aligns with a program unit boundary, so that the header can be written to flash independently of writing the preceding and following journal entries. 
+- VERSION (4 bits). This field indicates the version of TLV header and data format (version 1 is described in this document).
+- RESERVED (4 bits). This field is reserved for future use.
+- TYPE (8 bits). For example, TYPE = 1 indicates a full TLV representation which includes the key name and the value data in the payload. 
+- FLAGS (16 bits). This field includes permissions, for example, and the definition of the flags is specific to the TLV type.
+- Additional fields are present depending on the value of the TYPE field.
+- PAD. The header is padded so the last byte aligns with a program unit boundary. This means the header can be written to flash independently of writing the preceding and following journal entries. 
 
 
-### <a name="kv-tlv-tail"></a> KV TLV Tail
+### <a name="kv-tlv-generic-tail"></a> KV TLV Generic Tail
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_tail.jpg "unseen title text")
-**Figure 6. KV TLV tail format.**
+**Figure 6. KV TLV generic tail format.**
 
-The above figure shows the TLV tail format including the following fields:
+The above figure shows the TLV generic tail format including the following fields:
 
-- VALID field (~8 bits). The valid value of the VALUE field is the value programmed after an erase operation. 
+- VALID (8 bits). The valid value of the VALUE field is the value programmed after an erase operation. 
   In the case that the erase value is all bits set to 1 and the correct CRC for the TLV is present, then the TLV indicates the TLV is valid. 
   A value of 0x00 in this field would then indicate the TLV is invalid irrespective of the CRC. The delete operation sets the Valid field to the complement of the erase setting. 
   A value of 0x00 in this field would then indicate the TLV is invalid irrespective of the CRC. The delete operation sets the Valid field to the complement of the erase setting. 
   TLVs with the Valid field set to 0 are ignored.
-- Reserved1 field (~24 bits). 
-- Reserved2 field (~32n bits, for n >=0). This is padding so the Valid field sits within a program unit size block of NV store. 
-- CRC field (32 bits). This is the CRC of the TLV.
-- Reserved3 field (~32n bits). This is padding so the CRC field sits within a program unit size block of NV store. 
+- RESERVED1 (24 bits).  This field is reserved for future use.
+- RESERVED2 (32n bits, for n >=0). This is padding so the Valid field sits within a program unit size block of NV store. The field is reserved for future use.
+- CRC/HMAC (32 bits for CRC, 120, 256, 384, 512 bits for HMAC). This is the CRC/HMAC of the TLV. 
+- RESERVED3 (32n bits). This is padding so the CRC field sits within a program unit size block of NV store. The field is reserved for future use.
+
+Note, a tail length field TLEN may be added to the tail.
 
 
 #### Message Authentication Codes as Alternative to CRCs
 
-- The use of HMAC codes rather than CRC can be beneficial:
-    - HMAC requires key that should be kept securely. 
-    - uvisor MUST be used to manage the keys securely.
-    - Consider the scenario A of 1) key being stored in fuse, or HW security module, 2) CFSTORE storing data in on-chip flash. Then HMAC key stored more securely that flash so beneficial to use HMAC codes to protect on-chip flash data.
-    - Consider the scenario B of 1) key being stored in on-chip flash, 2) CFSTORE storing data in on-chip flash. Then HMAC key is not stored more  securely than data so its not beneficial to use HMAC codes to protect on-chip flash data.
-    - Consider the scenario C of 1) key being stored in on-chip flash, 2) CFSTORE storing data in off-chip flash. Then HMAC key stored more securely that data in off-chip flash so beneficial to use HMAC codes to protect off-chip flash data.
-- The design should be flexible enough so the tail CRC code can be replaced with MAC codes
-- The purpose of the CRC is for integrity only. However, many data sets can map to the same CRC, leading to the possibility that the data can be replaced without changing the CRC.
-- HMAC codes offer benefits over CRCs: 
-    - a hash can offer better CRC collision protection 
-    - Options to consider: HMAC SHA-1 (120 bits = 20 bytes), HMAC SHA-256 (256 bits = 32 bytes), HMAC SHA-384 (384 bits = 48 bytes), HMAC SHA-512 (512 bits = 64 bytes), AES CMAC (? bits = ? bytes)
-    - the tail needs to be able to change size to accommodate the different size MAC codes.
-- This part of the design will be discussed in another document.
+The benefit of using a HMAC signature depends on the threat model:
 
-    
+- Consider scenario A where HMAC use offers a benefit: 1) key being stored in fuse or HW security module, 2) CFSTORE storing data in on-chip flash. 
+  The HMAC key is stored more securely than the protected data in on-chip flash and so the use of HMAC codes is beneficial.
+- Consider scenario B where HMAC use offers a benefit: 1) key being stored in on-chip flash, 2) CFSTORE storing data in off-chip flash. 
+  The HMAC key is stored more securely than the protected data in off-chip flash and so the use of HMAC codes is beneficial.
+- Consider scenario C where HMAC use offers no benefit: 1) key being stored in on-chip flash, 2) CFSTORE storing data in on-chip flash. 
+  The HMAC key is not being stored more securely than the protected on-chip data and so the use of HMAC codes is not particularly beneficial.
+
+The design permits the use of HMAC codes rather than CRC values:
+
+- The HMAC key that is kept securely in a fuse, or in the CFSTORE uvisor box.
+- Options to consider: HMAC SHA-1 (120 bits = 20 bytes), HMAC SHA-256 (256 bits = 32 bytes), HMAC SHA-384 (384 bits = 48 bytes), HMAC SHA-512 (512 bits = 64 bytes), AES CMAC (? bits = ? bytes)
+- Additional KV TLV types are defined where accompanying tails including HMAC codes:
+    - TYPE = 3: tail with HMAC SHA-1 (120 bits = 20 bytes).
+    - TYPE = 4: tail with HMAC SHA-256 (256 bits = 32 bytes).
+    - TYPE = 5: tail with HMAC SHA-384 (384 bits = 48 bytes).
+    - TYPE = 6: tail with HMAC SHA-512 (512 bits = 64 bytes).
+    - TYPE = 7: tail with AES CMAC (? bits = ? bytes).
+
+        
 ### <a name="kv-tlv-header-type-1"></a> KV TLV Header Type 1: Full TLVs
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_header_type1.jpg "unseen title text")
-**Figure 7. TLV type 1 header format for the full TLV representation. Note that figure incorrectly shows Type = 0. **
+**Figure 7. TLV type 1 header format for the full TLV representation. Note the figure incorrectly shows TYPE = 0.**
 
 The fields of the KV header include the following:
 
 - The generic header fields as previously described in the [KV TLV Generic Header](#kv-tlv-generic-header) section.
-- FLAGS field (16 bits). This field is to be specified.
-- HLEN field (8 bits). This field specifies the length of the header.
-- KLEN field (8 bits). This field specifies the length of the key name field in the TLV payload. It is padded with 0's so the last byte aligns with a program unit boundary, 
+- FLAGS (16 bits). This field is to be specified.
+- HLEN (8 bits). This field specifies the length of the header.
+- KLEN (8 bits). This field specifies the length of the key name field in the TLV payload. It is padded with 0's so the last byte aligns with a program unit boundary, 
   allowing the first part of the TLV (header and key name) to be written in NV store when created/opened for writing independently of the following payload.
-- Reserved1 field (~16 bits). 
-- VLEN field (32 bits) specifies the length of the KV value data field in the TLV payload.
-- KVID (32 bits). This field reports the unique identifier bound to the key name specified in TLV key name part of the payload. The KVID is used in other TLV types to identify a TLV without including the key name.
-  The KVID is selected at create time and is unique within the store.
-- SEQUENCE_NUMBER (32 bits). This is the KV version number which is incremented each time a new version of the KV is written. The implementation must take into account the possibility that 
-  the sequence number counter can wrap. See the next section.
-- Pad. The header is padded so the last byte aligns with a program unit boundary. 
+- RESERVED1 (16 bits).  The field is reserved for future use.
+- VLEN (32 bits). This field specifies the length of the KV value data field in the TLV payload.
+- KVID (32 bits). This field is the unique identifier bound to the key name specified in TLV key name part of the payload. The KVID is used in other TLV types to identify a TLV without including the key name.
+  The KVID is selected at create time and is unique within CFSTORE.
+- SEQUENCE-NUMBER (32 bits). This is the KV version number which is incremented each time a new version of the KV is written. The implementation must take into account the possibility that 
+  the sequence number counter can wrap. See the [wrapping of the sequence number](#wrapping-of-the-sequence-number) section for further details.
+- PAD. The header is padded so the last byte aligns with a program unit boundary. 
+
+The type 1 TLVs appear in both snapshot and delta slots.
 
 
-#### Wrapping of the SEQUENCE_NUMBER
+#### <a name="kv-tlv-tail-type-1"></a> KV TLV Tail for Type 1 Headers
 
-todo: describe how the sequence number wraps.
+The tail accompanying a type 1 header uses a 32 bit CRC as shown in [KV TLV generic tail](#kv-tlv-generic-tail) section.
 
-- MAX=0xffffffff, Permit MAX/N_SLOT operations per slot. 
-- MAX_NUM_KV_ATTRIBUTES = MAX/N-SLOT ~ 1x10^9.
-- SEQUENCE-NUMBER-SLOT-START = SEQUENCE-NUMBER for the first journal entry logged in a slot
-- check at start of creating new slot:
-    - if the SEQUENCE-NUMBER  > (N-SLOT - 1) x MAX/N-SLOT then set SEQUENCE-NUMBER = 0
-    - at this point, there should be no entries in the system with SEQUENCE-NUMBER in range 0-
-- journal meta data records rotation between slot sequences.
-- what about KV thats written once, and then never written again? OK, these get increments when new snapshot get created, so OK.
-- if the (SEQUENCE-NUMBER - SEQUENCE-NUMBER-SLOT-START) > MAX/N-SLOT 
-    - stop logging journal entries in that slot.
- 
+
+#### <a name="wrapping-of-the-sequence-number"> Wrapping of the SEQUENCE-NUMBER
+
+The wrapping of the SEQUENCE-NUMBER field is handled in the following way:
+
+- A header flag SEQUENCE-NUMBER-WRAPPED is defined to indicate the sequence number counter has wrapped.
+- The system starts in "wrapped-mode-off".
+- The maximum value of the sequence counter is 0xffffffff. When the value wraps to 0 "wrapped-mode-on" is entered. All TLVs created in wrapped-mode-on have the SEQUENCE-NUMBER-WRAPPED flag set.
+- If the SEQUENCE-NUMBER-WRAPPED bit is set in a header then the SEQUENCE-NUMBER is interpretted as SEQUENCE-NUMBER += 0x0100000000 when comparing with other sequence numbers without the SEQUENCE-NUMBER-WRAPPED bit set.
+- When all SEQUENCE-NUMBERs created prior to entering wrapped-mode-on have been removed from the system, "wrapped-mode-off" is entered.  All TLVs created in wrapped-mode-off have the SEQUENCE-NUMBER-WRAPPED flag reset.
 
 
 ## <a name="cfstore-operation"></a> CFSTORE Operations
