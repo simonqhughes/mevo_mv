@@ -6,9 +6,9 @@ Document Version: 0.01
 
 Date 20161110
 
-# Introduction
+# <a name="introduction"></a> Introduction
 
-## Overview
+## <a name="overview"></a> Overview
 
 This document describes the CFSTORE high level design to remove the SRAM Limitation.
 
@@ -16,7 +16,7 @@ This document describes the CFSTORE high level design to remove the SRAM Limitat
 - The current document describes a new HLD for the implementation of the API with minimal SRAM footprint.
     
 
-## Goals of New Design:
+## <a name="goals-of-the-new-design"></a> Goals of the New Design
 
 The implementation uses the system heap to store a full SRAM image of all stored KV attributes prior to committing to NV store. 
 
@@ -43,14 +43,41 @@ The goals of the new design and implementation are as follows:
 - To be robust against failures i.e. the stored data should always be left in a recoverable state should a 
   power loss or a software reset occur during a flash write operation.
 
-## Document Structure and Layout
+## <a name="document-structure-and-layout"></a> Document Structure and Layout
 
-The layout of the document is as follows:
+The layout of the document described in this section.
 
-(todo: write the layout section)
+The first chapter of the document provides an [introduction](#introduction) describing a summary [overview](#overview) and the [goals of the new design](#goals-of-the-new-design).
+The chapter also includes the [terminology](#terminology) used throughout the document.
 
-  
-## Terminology
+The next chapter describes the [basic design](#basic-design-overview) features which minimise the use of SRAM, beginning with an overview of the [CFSTORE storage software stack](#cfstore-storage-software-stack).
+The design uses a [modified version of the flash journal](#kvs-are-stored-using-modified-flash-journal) to store key value attributes in a [Type Length Value representation](#tlv-structure).
+The TLV format is described in detail including a description of the [generic header format](#kv-tlv-generic-header), the [TLV tail](#kv-tlv-tail) and the [KV full TLV representation header](#kv-tlv-header-type-1).
+
+The next chapter describes the [CFSTORE API operations](#cfstore-operation) with respect to the basic design.
+
+- [Section 1](#storage-of-kv-read-write-locations-and-reference-counting) describes how the KV read and write locations are stored in the KV hkey descriptor, and how reference counting operations are implemented.
+- [section 2](#creating-a-new-kv) describes how a new KV is created in flash.
+- [Section 3](#deleting-a-kv) describes how a KV is deleted my resetting the VALID field in the tail to a non-erase value.
+- [Section 4](#opening-an-existing-kv-for-reading) describes the how an existing KV is opened for reading. 
+- [Section 5](#opening-an-existing-kv-for-reading-writing) describes the how an existing KV is opened for reading and writing. 
+- [Section 6](#flush-operation) describes the how the CFSTORE Flush() operation creates of a new snapshot of all valid TLVs, collecting garbage in the process.
+- [Section 7](#synchronous-mode-of-operation) describes how the design implements a synchronous mode of operation.
+- [Section 8](#asynchronous-mode-of-operation) describes how the design implements an asynchronous mode of operation.
+- [Section 9](#static-sram-buffers-kvbufs) describes the SRAM requirements to implement the design. SRAM is not required for read and write transactions, but is required for queueing transactions from multiple clients.
+- [Section 10](#error-handling) describes error handling.
+
+The next chapter describes [feature enhancements](#enhanced-design-features) to the basic design:
+
+
+- [Section 1](#write-location-seek-support) describes the Type 2 TLV representation for incremental writes used to implement write location seeking.
+- [Section 2](#wear-levelling) describes the wear level algorithm.
+
+
+The final chapter lists useful [references](#references) to this document.
+
+
+## <a name="terminology"></a> Terminology
 
 Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of terminology. For reference, the following terms are used extensively throughout this document.
 
@@ -61,9 +88,100 @@ Please refer to CFSTORE [terminology document][CFSTORE_TERM] for definitions of 
 - TLV: Type Length Value.
 
 
-# Basic Design Overview
+# <a name="basic-design-overview"></a> Basic Design Overview
 
-## KVs are stored Using Modified Flash Journal
+
+## <a name="cfstore-storage-software-stack"></a> CFSTORE Storage Software Stack
+
+
+```
+
+                         Portable mbed Cloud                                     Platform OS 
+                           Software Stack                                        (e.g. mbedOS)
+                         ==================                                      Integration
+                                                                                 ============= 
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    | mbed Cloud Client                                                 |
+    |  +-+-+-+-+-+-+-+-+-+-+-++-+  +-+-+-+-+-+-+-+-+                    |
+    |  |  Provisioning Client   |  |  mbed Client  |                    |
+    |  +-+-+-+-+-+-+-+-+-+-+-++-+  +-+-+-+-+-+-+-+-+                    |
+    |                                                                   |
+    |  +-+-+-+-+-+-+-+-+  +-+-+-+-+-+-+-+-+-+  +-+-+-+-+-+-+-+          |    
+    |  | Thread Stack  |  |  Update Service |  | mbedTLS     |          |                               
+    |  +-+-+-+-+-+-+-+-+  +-+-+-+-+-+-+-+-+-+  +-+-+-+-+-+-+-+     (20) |    
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    
+      
+                                --- CFSTORE C-HAL3 Interface/PAL (18) ---     -- OS CFSTORE API (19) --
+                                                                            
+                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+                                |    Security Layer (uvisor) (16)       |    | Platform-OS CFSTORE   |
+                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    | Wrapper (17)          |  
+                                                                             +-+-+-+-+-+-+-+-+-+-+-+-+
+                                                                            
+    ------------------- CFSTORE C-HAL2 Interface (15) ------------------------------------------------ 
+                                                                            
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  
+    |             Configuration Store (CFSTORE) Mux/Demux (14)          |  
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  
+                                                                            
+    -------------------- CFSTORE CMSIS C-HAL Interface (13) -------------  
+                                                                           
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  
+    |                      Configuration Store (12)                     |  
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  
+
+    -- Storage_VM.h API (9) ---   ---- Flash_Journal.h API (10) ---------    --- OS SVM/FJ API (11) --
+     
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
+    | Storage Volume Manager (SVM) (7)|                                      |Platform-OS SVM Wrap   | (8)
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                                      +-+-+-+-+-+-+-+-+-+-+-+-+
+
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+    | Flash Journal (FJ) (5)                                            |    | Platform-OS FJ Wrapper| (6)   
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+
+    ------ Storage Driver API (CMSIS Storage Driver Interface) (3) ------    --- OS Storage API (4) --
+    
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+    | Storarge_Driver (1) e.g.                                          |    | Platform-OS           |
+    |  - ARM_Driver_Storage_MTD_K64F                                    |    | Storage Driver        |
+    |  - ARM_Driver_Storage_MTD_SDCard                                  |    | Wrapper (2)           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+    +-+-+-+-+-+-+-+-+-+-+-+-+
+
+    SW
+    -----------------------------------------------------------------------------------------------------
+    HW
+    
+```
+
+**Figure 0. CFSTORE Storage Software Stack.**
+
+The above figure is used to help understand the design described in this document
+
+- (1) Storage Driver. This entity is the implementation of the NV storage device driver.
+- (2) Platform OS Storage Driver Wrapper. This entity encapsulates the Storage Driver for integration within a Platform OS.
+- (3) Storage Driver API (CMSIS Storage Driver Interface). This entity is the portable storage driver API equating to the CMSIS Storage Driver Interface agreed with Kiel. 
+- (4) Platform OS Storage API. This entity is the Platform OS storage driver API.
+- (5) Flash Journal (FJ). This entity is the Flash Journal implementation.
+- (6) Platform OS Flash Journal Wrapper. This entity is the platform OS Flash Journal wrapper implementation.
+- (7) Storage Volume Manager. This entity is the storage volume manager which creates virtual partitions from a physical storage device so higher layer entities can share the device. 
+- (8) Platform OS Storage Volume Manager Wrapper. This entity is the platform OS encapsulation of the storage volume manager.
+- (9) Storage Volume Manager API(Storage_VM.h). This entity is the portable API for the Storage Volume Manager. 
+- (10) Flash Journal (Flash_Journal.h) API. This entity is the portable API for the Flash Journal.
+- (11) Platform OS Storage Volume Manager/Flash Journal Wrapper API. This entity is the platform OS encapsulation of the storage volume manager and flash journal APIs.
+- (12) Configuration Store. This entity is the implementation in C of the configuration store. 
+- (13) CFSTORE CMSIS C-HAL Interface. This entity is the portable CFSTORE interface (CMSIS aligned C-HAL).
+- (14) Configuration Store (CFSTORE) Mux/Demux. This entity multiplexes/demultiplexes the calls from multiple overlying CFSTORE clients to the single user context of the underlying CMSIS layer. 
+- (15) CFSTORE C-HAL2 Mux/Demux Interface. This entity is the portable API to the CFSTORE Mux/Demux.
+- (16) Security Layer (uvisor). This entity is used to provide security for lower layers of the software stack.
+- (17) Platform-OS CFSTORE Wrapper. This entity provides the CFSTORE integration with the Platform OS. 
+- (18) CFSTORE C-HAL3 Interface. This entity is the portable interface to the secure CFSTORE. It is thought to be synonymous with the Portable Abstraction Layer (PAL)
+- (19) OS CFSTORE API. This is the platform OS encapsulation of CFSTORE.
+- (20) mbed Cloud Client. This entity is the integration of the provisioning client, mbed client and the update service, for example. 
+
+
+## <a name="kvs-are-stored-using-modified-flash-journal"></a> KVs are stored Using Modified Flash Journal
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig1.jpg "unseen title text")
 **Figure 1. Flash Journal (modified) is used to support slots of different types and sizes.**
@@ -80,25 +198,78 @@ Slots have the following characteristics:
     
 - Slot boundaries are aligned to sector boundaries.
 - Slots have meta-data. There is a header at the start of the slot and a tail with CRC/HMAC at the end of the slot (the header and tail are not show in the above figure).
-- Slots can be of different sizes. Its advantageous for snapshot slots to be larger than
+- Slots can be of different sizes. It's advantageous for snapshot slots to be larger than
   delta slots (e.g. snapshot slot = 256kB, delta slots = 16kB) because:
     - The scheme can accommodate devices with mixed block sizes more easily e.g. STM devices with 4x16kB, 3x64kB, 1x128kB, 1x256kB.
       as small sectors can be used for the deltas, and the large sectors can be used to store the entirety of the snapshot data.
-    - its desireable that the snapshot slots use the large sectors so the total amount of stored data can be large e.g. 256kB.
+    - it's desirable that the snapshot slots use the large sectors so the total amount of stored data can be large e.g. 256kB.
 - Slots can be made up of multiple smaller sectors. 
     - For example, on the K64F which has a 2kB sector size, a 256kB snapshot slot may be composed of 128x2kB sectors. 
     - The slot may be composed of a set of non-contiguous storage address ranges rather than a one continuous address range. This permits errored sectors to be taken out of service.
-- Slots can be made up of 1 large sector. For exmaple, the STM 42x (todo find data), has a 128kB sector which may be used for a snapshot slot.
+- Slots can be made up of 1 large sector. For example, the STM 42x (todo find data), has a 128kB sector which may be used for a snapshot slot.
 - Slot sectors are erased at the start of use of the slot. 
 - After the erase operation at the start of use, a delta slot will have multiple transactional writes successfully appended to a delta slot. This means that for every 1 erase operation, there can be many write
   operations extending the overall life of the sector beyond 1 erase per write.
     
-todo: insert link to Rohits spreadsheet?
+    
+```
 
+       +-------------------------------+    ^
+       |                               |    |
+       |  Journal Header               |    |
+       |  starts with generic header   |    |
+       |  followed by specific header  |    |
+       |                               |    |   multiple of program_unit
+       +-------------------------------+    |   and erase-boundary
+       +-------------------------------+    |
+       |                               |    |
+       |   padding to allow alignment  |    |
+       |                               |    |
+       +-------------------------------+    v
+       +-------------------------------+
+       | +---------------------------+ |    ^
+       | |  slot header              | |    |
+       | |  aligned with program_unit| |    |
+       | +---------------------------+ |    |     slot 0
+       |                               |    |     aligned with LCM of all erase boundaries
+       |                               |    |
+       |                               |    |
+       |                               |    |
+       |          BLOB0                |    |
+       |                               |    |
+       |                               |    |
+       | +---------------------------+ |    |
+       | |  slot tail                | |    |
+       | |  aligned with program_unit| |    |
+       | +---------------------------+ |    |
+       +-------------------------------+    v
+       +-------------------------------+
+       | +---------------------------+ |    ^
+       | |  slot header              | |    |
+       | |  aligned with program_unit| |    |
+       | +---------------------------+ |    |     slot 1
+       |                               |    |     aligned with LCM of all erase boundaries
+       |          BLOB1                |    |
+       |                               |    |
+       .                               .    .
+       .                               .    .
+  
+       .                               .    .
+       .          BLOB(N-1)            .    .
+       |                               |    |
+       | +---------------------------+ |    |     slot 'N - 1'
+       | |  slot tail                | |    |     aligned with LCM of all erase boundaries
+       | |  aligned with program_unit| |    |
+       | +---------------------------+ |    |
+       +-------------------------------+    v
+ 
+```
+
+**Figure 1.1. Current Flash Journal implementation slot layout on flash, showing journal meta-data (taken `from flash_journal_strategy_sequential.h`).**
         
-## KVs Storage Format
+## <a name="kv-storage-format"></a> KVs Storage Format
 
-### TLV Structure
+### <a name="tlv-structure"></a> TLV Structure
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_tlv_structure_overview.jpg "unseen title text")
 **Figure 2. Full TLV storage format for KV data.**
@@ -109,7 +280,7 @@ The above figure shows the format of the KV full TLV representation i.e. the for
 - A data payload, padded so the last byte aligns with a program unit boundary. The payload can be written to flash independently of writing the preceding header and following tail. In the above figure, the payload is composed of:
     - Key name. This is the name of the KV attribute.
     - Value data. This is the value data bound to the key name.
-- A tail of fixed size, padded so the last byte aligns with a program unit boundary. The tal can be written to flash independently of writing the preceding payload, and the following header of the next TLV (space permitting). 
+- A tail of fixed size, padded so the last byte aligns with a program unit boundary. The tail can be written to flash independently of writing the preceding payload, and the following header of the next TLV (space permitting). 
 
 Note also the following:
 
@@ -133,10 +304,10 @@ The above figure shows the generic structure of the TLV header common to all KV 
 - TYPE field (~8 bits). Type = 1 indicates a full TLV representation which includes the key name and the value data. These TLVs may appear in snapshot and delta slots.
 - FLAGS field (~16 bits). This field includes permissions, for example, and the definition of the flags is determined by the TLV Type.
 - Additional fields are present depending on the value of the Type field.
-- PAD. The header is padded so the last byte aligns with a program unit boundary, so that the header can be written to flash independently of writing the preceeding and following journal entries. 
+- PAD. The header is padded so the last byte aligns with a program unit boundary, so that the header can be written to flash independently of writing the preceding and following journal entries. 
 
 
-### KV TLV Tail
+### <a name="kv-tlv-tail"></a> KV TLV Tail
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_tail.jpg "unseen title text")
 **Figure 4. KV TLV tail format.**
@@ -163,7 +334,7 @@ The above figure shows the TLV tail format including the following fields:
     - Consider the scenario B of 1) key being stored in on-chip flash, 2) CFSTORE storing data in on-chip flash. Then HMAC key is not stored more  securely than data so its not beneficial to use HMAC codes to protect on-chip flash data.
     - Consider the scenario C of 1) key being stored in on-chip flash, 2) CFSTORE storing data in off-chip flash. Then HMAC key stored more securely that data in off-chip flash so beneficial to use HMAC codes to protect off-chip flash data.
 - The design should be flexible enough so the tail CRC code can be replaced with MAC codes
-- The purpose of the CRC is for integrity only. However, many data sets can map to the same CRC, leading to the possiblility that the data can be replaced without changing the CRC.
+- The purpose of the CRC is for integrity only. However, many data sets can map to the same CRC, leading to the possibility that the data can be replaced without changing the CRC.
 - HMAC codes offer benefits over CRCs: 
     - a hash can offer better CRC collision protection 
     - Options to consider: HMAC SHA-1 (120 bits = 20 bytes), HMAC SHA-256 (256 bits = 32 bytes), HMAC SHA-384 (384 bits = 48 bytes), HMAC SHA-512 (512 bits = 64 bytes), AES CMAC (? bits = ? bytes)
@@ -178,7 +349,7 @@ The above figure shows the TLV tail format including the following fields:
 
 The fields of the KV header include the following:
 
-- The generic header fields as previousl described in the [KV TLV Generic Header](#kv-tlv-generic-header) section.
+- The generic header fields as previously described in the [KV TLV Generic Header](#kv-tlv-generic-header) section.
 - FLAGS field (16 bits). This field is to be specified.
 - HLEN field (8 bits). This field specifies the length of the header.
 - KLEN field (8 bits). This field specifies the length of the key name field in the TLV payload. It is padded with 0's so the last byte aligns with a program unit boundary, 
@@ -197,21 +368,21 @@ The fields of the KV header include the following:
 todo: describe how the sequence number wraps.
 
 - MAX=0xffffffff, Permit MAX/N_SLOT operations per slot. 
-- MAX_NUM_KV_ATTRIBUTES = MAX/N_SLOT ~ 1x10^9.
+- MAX_NUM_KV_ATTRIBUTES = MAX/N-SLOT ~ 1x10^9.
 - SEQUENCE-NUMBER-SLOT-START = SEQUENCE-NUMBER for the first journal entry logged in a slot
 - check at start of creating new slot:
-    - if the SEQUENCE_NUMBER  > (N_SLOT - 1) x MAX/N_SLOT then set SEQUENCE_NUMBER = 0
-    - at this point, there should be no entries in the system with seq number in range 0-
-- jornal meta data records rotation between slot sequences.
+    - if the SEQUENCE-NUMBER  > (N-SLOT - 1) x MAX/N-SLOT then set SEQUENCE-NUMBER = 0
+    - at this point, there should be no entries in the system with SEQUENCE-NUMBER in range 0-
+- journal meta data records rotation between slot sequences.
 - what about KV thats written once, and then never written again? OK, these get increments when new snapshot get created, so OK.
-- if the (SEQUENCE_NUMBER - SEQUENCE_NUMBER_SLOT_START) > MAX/N_SLOT 
+- if the (SEQUENCE-NUMBER - SEQUENCE-NUMBER-SLOT-START) > MAX/N-SLOT 
     - stop logging journal entries in that slot.
  
 
 
-## CFSTORE Operations
+## <a name="cfstore-operation"></a> CFSTORE Operations
 
-### Storage of KV Read/Write Locations and Reference Counting
+### <a name="storage-of-kv-read-write-locations-and-reference-counting"></a> Storage of KV Read/Write Locations and Reference Counting
 
 For each open KV descriptor (hkey), the opaque hkey buffer is used by CFSTORE as an implementation storage area:
 
@@ -220,14 +391,14 @@ For each open KV descriptor (hkey), the opaque hkey buffer is used by CFSTORE as
     - The KVID of the open KV.
     - The KV read location rlocation.
     - The KV write location wlocation.
-- The cfstore_file_t form nodes in a the file_list linked list of open files. 
+- The cfstore_file_t instances form nodes in the file_list linked list of open files. 
 - When a KV is opened multiple times (e.g. by multiple clients each accessing the same KV) then multiple cfstore_file_t entries will appear in the file_list 
   with the same KVID.
 - The file_list is used to generate a reference count of the number of open KV descriptors for a particular KV by counting the nodes with the KV KVID appearing in the file_list.
   In the case that a client deletes a KV, the KV is only deleted when the last open KV descriptor using the KV is closed, and the reference count falls to 0.
 
 
-### Creating a New KV
+### <a name="creating-a-new-kv"></a> Creating a New KV
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_create.jpg "unseen title text")
 **Figure 6. Creating a New KV.**
@@ -248,7 +419,7 @@ The above figure shows the operations performed to create a new KV.
 - Once the KV has been closed it may be opened for writing again. This will cause a new version of the KV TLV to be present in the delta slot.
 
 
-### Deleting a  KV
+### <a name="deleting-a-kv"></a> Deleting a KV
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_delete.jpg "unseen title text")
 **Figure 7. Deleting a  KV.**
@@ -256,13 +427,13 @@ The above figure shows the operations performed to create a new KV.
 The above figure shows the operations performed to delete a KV.
 
 - The last full TLV representation of the KV is found. This may appear in a snapshot or delta slot.
-- The VALID field (perviously set to the erase value at during the last sector erase operation) is set to complement of the erase value. The KV TLV then becomes invalid and will be ignored.
+- The VALID field (previously set to the erase value at during the last sector erase operation) is set to complement of the erase value. The KV TLV then becomes invalid and will be ignored.
 - At a suitable point during system operation (e.g. when a CFSTORE Flush() operation is performed) the previous snapshot slot and delta slot(s) are used to create a new snapshot slot. The new snapshot slot contains
   a full representation of all the valid TLVs not including the deleted TLVs. The old snapshot slot will be erased and used to create the next snapshot version at some future point in time. This scheme garbage
   collects the deleted TLVs at the expense of periodically consolidating valid KV TLVs in a snapshot image.
   
 
-### Opening an Existing KV for Reading
+### <a name="opening-an-existing-kv-for-reading"></a> Opening an Existing KV for Reading
 
 - For this operation, its not necessary to log any new entries in the delta slot.
 - When an existing KV is opened for reading, the latest version of the KV TLV is found. This may be in the preceding snapshot or delta slots.
@@ -270,11 +441,11 @@ The above figure shows the operations performed to delete a KV.
 - When the client performs a CFSTORE Read() operation, the KV data is read into the supplied buffer from the location indicated by the current value of the rlocation position. 
     - The cfstore_file_t rlocation position is updated after receiving the data from the storage driver.
 - When the client performs a CFSTORE Rseek() operation, the cfstore_file_t::rlocaton attribute is updated.
-- Multiple readers can read there underlying KV TLV data simulataneously. Each client maintains a cfstore_file_t::rlocaton attribute independent of other clients.
+- Multiple readers can read the underlying KV TLV data simultaneously. Each client maintains a cfstore_file_t::rlocaton attribute independent of other clients.
 - When the client performs a CFSTORE Close() the cfstore_file_t structure is returned to the client/returned to the pool.
 
 
-### Opening an Existing KV for Reading/Writing
+### <a name="opening-an-existing-kv-for-reading-writing"></a> Opening an Existing KV for Reading/Writing
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_kv_open.jpg "unseen title text")
 **Figure 8. Opening an existing KV for reading/writing.**
@@ -295,37 +466,37 @@ The above figure shows the operations performed to delete a KV.
     - The cfstore_file_t wlocation position defaults to 0, and cannot be set with a seek operation. It is updated after writing data to storage.
     - CFSTORE writes the data to NV store. The supplied data should be padded to be a multiple of PU size (the minimum write size). If not CFSTORE 
       will write only a multiple of PU bytes.
-- Multiple readers/writers can read/write the underlying KV TLV data simulataneously. Each client maintains  and cfstore_file_t::wlocaton attributes independently of other clients.
-- When the KV is closed the tail is written in the KV commit the data. See (3) in the above figure. The previous version of the TLV is then invalidated by settin the tail VALID field to the complement of the erase value.
+- Multiple readers/writers can read/write the underlying KV TLV data simultaneously. Each client maintains  and cfstore_file_t::wlocaton attributes independently of other clients.
+- When the KV is closed the tail is written in the KV commit the data. See (3) in the above figure. The previous version of the TLV is then invalidated by setting the tail VALID field to the complement of the erase value.
     - When the client performs a CFSTORE Close() the cfstore_file_t structure is returned to the client/returned to the pool.
 - Once the KV has been closed it may be opened for writing again. This will cause a new version of the KV TLV to be present in the delta slot (see (4) in the above figure).
 
 
-### Flush Operation
+### <a name="flush-operation"></a> Flush Operation
 
 The CFSTORE Flush() operation does the following:
 
-- The current delta slot is commited by writing the tail of the Flash Journal Slot.
+- The current delta slot is committed by writing the tail of the Flash Journal Slot.
 - The oldest snapshot slot is erased in preparation for receiving the new snapshot data.
 - The latest versions of valid KV TLVs are found in the latest snapshot and delta slots. A new version is written in the new snapshot so that there will be no deleted TLVs present.
 - The new snapshot flash journal tail will be written, committing the snapshot data.
 
 
-### Synchronous Mode of Operation.
+### <a name="synchronous-mode-of-operation"></a> Synchronous Mode of Operation.
 
 The design supports a synchronous interface implementation.
 
 
-### Asynchronous Mode of Operation
+### <a name="asynchronous-mode-of-operation"></a> Asynchronous Mode of Operation
 
 The design supports an asynchronous interface implementation. The asynchronous KV read operation proceeds as follows:
 
 - On a KV open for read-only access, a KVBUF is attached to the KV file descriptor.
-- The KV is found in the lastest snapshot and the value data read into the KVBUF.
+- The KV is found in the latest snapshot and the value data read into the KVBUF.
 - The delta snapshots subsequent to latest snapshot are searched and applied to the KVBUF to yield the current state of the KV value data.
  
 
-### Static SRAM Buffers (KVBUFs)
+### <a name="static-sram-buffers-kvbufs"></a> Static SRAM Buffers (KVBUFs)
 
 This design has the following implications regarding the SRAM footprint.
  
@@ -335,7 +506,7 @@ This design has the following implications regarding the SRAM footprint.
     - For a write operation, the ownership of the client write buffer (with data to store) is passed to CFSTORE until the transaction has been completed (either the data has been written or an error indicated). 
       The buffer (or part thereof) is passed to the storage driver to indicate the data to be written. Once written, ownership of the buffer is returned to the client.
 - SRAM is required to support multiple clients concurrently issuing read/write requests:
-    - CMSIS storage driver transactions have to be serialised i.e. only 1 outstanding transaction can be outstanding at any time, and the transaction has to completed before another transaction initiated. 
+    - CMSIS storage driver transactions have to be serialised i.e. only 1 outstanding transaction can be outstanding at any time, and the transaction has to complete before another transaction initiated. 
     - For an open KV, there may be an associated statically allocated SRAM buffer known as a KVBUF for queueing read/write transactions to the storage driver.
     - The KVBUF is used to queue a client request e.g.:
         - For storing context data for a future transaction until it can be issued to the storage driver.
@@ -349,34 +520,34 @@ This design has the following implications regarding the SRAM footprint.
     - The maximum number of concurrently open KVs.
   
 
-### Error Handling
+### <a name="error-handling"></a> Error Handling
 
 This section describes the error handling incorporated into the design.
 
 
-#### ProgramData() to a Particula Sector Fails.
+#### ProgramData() to a Particular Sector Fails.
 
 In the case that the programming of data to a particular flash sector fails, the following error recovery procedure is used:
 - the procedure is currently unknown/unspecified.
 - See the [Wear Levelling](#wear-levelling) section for further discussion. 
 
 
-# Enhanced Design Features
+# <a name="enhanced-design-features"></a> Enhanced Design Features
 
 This section describes features that can be added to the basic design to enhance operation and performance. Additional features includes:
 
 - Write location seek support for setting the write location within a file.
 
 
-## Write Location Seek Support
+## <a name="write-location-seek-support"></a> Write Location Seek Support
 
-The CFSTORE API specification has the limitation that the write locaion does not support seeking:
+The CFSTORE API specification has the limitation that the write location does not support seeking:
 
 - When a file is opened for writing, the write location (wlocation) is set to 0, i.e. to the beginning of the KV value data.
-- As data is written to the KV value data field, wlocation is incrementally updated reflecting data that has been written. No Wseek() method exists in the CFSTORE API, so wlocation cannot be changed i
+- As data is written to the KV value data field, wlocation is incrementally updated reflecting data that has been written. No Wseek() method exists in the CFSTORE API, so wlocation cannot be changed
   independently of write operations.
 - When a file is opened for reading, the read location (rlocation) is set to 0, i.e. to the beginning of the KV value data.
-- As datat is read from the KV value data field, rlocation is incrementally updated reflecting data that has been read. 
+- As data is read from the KV value data field, rlocation is incrementally updated reflecting data that has been read. 
 - rlocation can be set to a new offset using the Rseek() method in the CFSTORE API. 
 
 This inability to seek the wlocation means there is a mismatch between the CFSTORE API and the behaviour of a traditional POSIX file API, 
@@ -400,7 +571,7 @@ fields has been defined previously in the [KV TLV Header Type 1](#kv-tlv-header-
 
 The wlocation field is defined as follows:
 
-- WLOCATION (32 bits). The first byts of the incremental write payload data is written at offset WLOCATION from the start of the KV value data.
+- WLOCATION (32 bits). The first bytes of the incremental write payload data are written at offset WLOCATION from the start of the KV value data.
 
 
 ![alt text](pics/ARM_MBED_SW_HLD_0001_cfstore_lld_fig_incremental_write_ops.jpg "unseen title text")
@@ -420,11 +591,11 @@ Figure 10 illustrates how the incremental write TLV is used in conjunction with 
     - The cfstore_file_t::wlocation variable is updated accordingly after each incremental write.
     - The above figure shows the 3 incremental write operations at (2), (3) and (4). The sequence numbers are ordered such that j4 > j3 > j2 > i.
     - Multiple writers can be writing data to the same KV. Each writer contributes incremental writes independently, but they are all used to create a new version of the full TLV data.
-- Read operations first read the original KV TLV snapshot data into the client receive buffer. The delta write operations for this KV are then applied ontop of the original TLV data into the client receive buffer. 
+- Read operations first read the original KV TLV snapshot data into the client receive buffer. The delta write operations for this KV are then applied on top of the original TLV data into the client receive buffer. 
   This re-creates the current version of the value data, which is returned to the client.
 - When the TLV is closed ((see (6) in the above figure, no more writes to be made), the new state of the TLV is recorded in the space allocated for the full TLV. In a loop:
     - A data window (e.g. 256 bytes, a multiple of the PU size) is read from the snapshot TLV into an SRAM buffer, the first data window being read from the start of the TLV data.
-    - The incrementatal writes updating value data inside the data window are applied to the buffer.
+    - The incremental writes updating value data inside the data window are applied to the buffer.
     - The buffer is then written to the full TLV.
     - The loop is repeated for the next data window worth of data until the full TLV data payload has been written.
     - Once the payload has been written, the full TLV tail is written committing the new version of the TLV. The incremental write TLVs are then deleted.
@@ -437,46 +608,12 @@ from which the device software can recover the data.
 If the power fails during the above operation then upon restarting the system falls back to the latest version of the full TLV representing the KV data. 
 The latest version is the one with the most recent sequence number. 
 
-- If the power fails prior to event (9) then the system will fallback to the previous full TLV version e.g. the version stored in the last snapshot slot. 
+- If the power fails prior to event (9) then the system will fall-back to the previous full TLV version e.g. the version stored in the last snapshot slot. 
   The incremental write TLVs will be ignored (they may be deleted on CFSTORE initialisation) and the 3 data incremental write operation will be lost.
-- If the power fails after event (9) but prior to deleting the incremental write TLVs, then the system will fallback to using the new full TLV version created with the incremental write deltas. The 
+- If the power fails after event (9) but prior to deleting the incremental write TLVs, then the system will fall-back to using the new full TLV version created with the incremental write deltas. The 
   undeleted incremental write TLVs will be ignores (they may be deleted on CFSTORE initialisation).
 
 Note that at initialisation, undeleted incremental write TLVs in a delta slot may be deleted.
-
-
-## Slots as Ring Buffers
-
-- starting at variable location.
-- finding the first TLV in a slot
-- wrapping 
-
-todo: in next revision relax this constraint e.g. with the following changes:
-
-- relax the constraint that the delta TLV is fixed size of 256 bytes.
-- the delta TLV is of minimum of program unit bytes in size.
-- have a cookie field in the header.
-- the delta slot is used as a ring buffer.
-- rather than the first delta TLV start at a random location selected from one of the (sizeof delta slot)/(sizeof fixed delta TLV block ~256bytes) locations, 
-  have N~(sizeof delta slot)/(sizeof KVBUF) so N~64 predefined possible locations.
-- one subslot position is selected at random when writing the first KV to a delta slot. 
-- The location of the first TLV in a delta slot is caches in 
-  to find the first delta TLV 
-  
-- the first delta block writing in a slot is written at a random location within the slot so as not to excessively wear the 
-  flash at the start of the associated sector. To do this: 
-    - delta blocks have a flag indicating this is the first one to be written in the delta slot.
-    - delta blocks are of fixed size e.g. KVBUF, multiple of the program unit. They delta slot can be searched 
-      from the start of the slot by looking for the looking for the first delta TLV flag at the 
-      boundaries which 
-
-
-#### Delta TLV First bit
-
-todo: this section describes the operation of the Delta TLV First bit
-
-- A Scheme for minimizing wear at the start of a slot.
-- delta slot used as a ring buffer of delta TLVs.
 
 
 ## <a name="wear-levelling"></a> Wear Levelling
@@ -489,15 +626,14 @@ This feature is currently under development. Thoughts include:
 - A flash journal slot is composed of a set of storage blocks. 
     - A block corresponds to N sectors forming a physical address range with no holes (i.e. contiguous). 
     - A block contains no bad blocks.
-    - If a bad sector is detected in a block, the block is split into 2 sub-blocks, with the bad block missing form both sub-blocks.
-        - The orignal block is detached from the slot.
+    - If a bad sector is detected in a block, the block is split into 2 sub-blocks, with the bad block missing from both sub-blocks.
+        - The original block is detached from the slot.
         - The bad sector is recorded in the journal meta data.
         - The 2 sub-blocks are attached to slot and managed like the other blocks.
 - Optionally, a pool of sectors is set aside to replace bad sectors in slots, maintaining a slots capacity.
 
 
-
-# References 
+# <a name="references"></a> References 
 
 * The [CFSTORE Product Requirements][CFSTORE_PRODREQ]
 * The [CFSTORE Engineering Requirements][CFSTORE_ENGREQ]
