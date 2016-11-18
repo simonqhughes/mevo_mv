@@ -22,7 +22,7 @@ This document describes the CFSTORE High Level Design (HLD) to remove the SRAM L
 
 ## <a name="cfstore-current-design-and-implementation-status"></a> CFSTORE Current Design and Implementation Status
 
-The current CFSTORE design and implementation uses the system heap to store a full image of all stored Key Value (KBV) attributes prior to committing to the NV store. 
+The current CFSTORE design and implementation uses the system heap to store a full image of all stored Key Value (KV) attributes prior to committing to the NV store. 
 
 - When the CFSTORE Flush() operation is performed, the SRAM image is copied to NV store.
 - When the CFSTORE Initialize() operation is performed, the NV store KV data image is loaded into SRAM which is allocated when the size of the NV store image is determined.
