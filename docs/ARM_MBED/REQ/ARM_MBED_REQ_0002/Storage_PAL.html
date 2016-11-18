@@ -1,0 +1,760 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html><head><meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Storage PAL</title></head><body>
+<h1>Storage PAL</h1>
+<address>by Erez Landau erez.landau@arm.com<br>
+</address>
+<h2>Requirements</h2>
+<ol>
+  <li>
+    <h3>Storage:</h3>
+  </li>
+  <ol>
+    <li>Storage implementation assume typically less then 100 active records on device and must be less then 256 active records</li>
+    <ol>
+      <li>Each record is written and read in one operation</li>
+      <ol>
+        <li>Memory limitation should limits such a record to up to 4KB and must limits such a record to up to 8KB</li>
+      </ol>
+    </ol>
+    <li>Normal records will not be updated frequently</li>
+    <ol>
+      <li>Only a few times during the life time of a device</li>
+    </ol>
+    <li>For implementation of saving "warm-start state" rapid updates might be used with the following limitations:</li>
+    <ol>
+      <li>Small records (up to 128B)</li>
+    </ol>
+    <ol>
+      <li>Total writes per day will be not larger then available free storage</li>
+    </ol>
+    <li>Storage is based on sequential writes to new locations for
+every write with occasional Garbage Collection (GC) of deleted records</li>
+    <li>Storage PAL must support simultaneous synchronous and asynchronous API<br>
+    </li>
+    <li>All implementations assume exclusive access to storage for PAL Storage implementation</li>
+    <li>All implementations beside File-System assume preallocation of dedicated storage space</li>
+    <ol>
+      <li>That space is exclusive for PAL storage<br>
+      </li>
+    </ol>
+    <li>Storage could be either:</li>
+  </ol>
+  <li>
+    <h4>File System:</h4>
+  </li>
+  <ol>
+    <li>Only format that allow exact storage allocation from the underline platform</li>
+    <li>Assume the ability to handle file deletion efficiently</li>
+    <ol>
+      <li>Every modify could be effectively a new file write and deletion of previous file<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h4>Single preallocated File:</h4>
+  </li>
+  <ol>
+    <li>Do all storage handling as with direct flash operation without dealing with erase and sync and GC</li>
+    <ol>
+      <li>Same avoiding of writing many times to a single location (index file) as with raw flash<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h4>Raw Flash Driver:</h4>
+  </li>
+  <ol>
+    <li>Requires full journaling and GC implementation</li>
+  </ol>
+  <li>
+    <h3>Security:</h3>
+  </li>
+  <ol>
+    <li>Security assume that internal flash is fuse protected from external read</li>
+    <li>All data is either:</li>
+    <ol>
+      <li>Stored in internal Flash</li>
+      <li>Stored elsewhere and encrypted with an RoT symmetric key stored in internal flash</li>
+      <ol>
+        <li>For external storage (flash or memory card) the RoT key will typically be stored on a dedicated flash (raw) sector protected from Factory Reset</li>
+      </ol>
+    </ol>
+    <li>For RoT support, the platform may supply either:</li>
+    <ol>
+      <li>Raw dedicated internal flash sector</li>
+      <li>A function that read the RoT</li>
+      <li>A function that decrypt and encrypt (using hidden RoT key) provided data (external storage)</li>
+    </ol>
+    <li>Platform may provides an external storage with secure (encrypted) file system</li>
+    <li>For platforms that support secure execution context (like TZ or uVisor) the storage will allow exclusive access to the secure execution context (e.g. secure box) that created the asset<br>
+    </li>
+  </ol>
+  <li>
+    <h3>Robustness</h3>
+  </li>
+  <ol>
+    <li>Single sector failure must not destroy the entire storage</li>
+    <li>Storage requires to recover from single sector failure with the lost of only records written to the failed record</li>
+    <li>Bad sectors should be supported</li>
+    <ol>
+      <li>A few (1-9) sectors in internal flash</li>
+      <li>Up to 50% in external flash</li>
+    </ol>
+    <li>Above implies</li>
+    <ol>
+      <li>Per record MAC (signature) with RoT key<br>
+      </li>
+      <li>MAC of MACs with each record<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h3>Wear Level</h3>
+  </li>
+  <ol>
+    <li>Wear Level must be proportional to amount of data written to storage and with no relation to amount of writes (transactions)</li>
+    <li>Typical (current) usage (like testing cycle) should erase each sector only once</li>
+    <li>Above implies real journaling write pattern</li>
+    <li>Collection of metadata (location per key) should be done by scanning the entire flash</li>
+    <li>Index file may exists only in RAM by caching of essential meta-data</li>
+    <ol>
+      <li>Total caching size should be up to 1KB and must be below 2KB</li>
+      <li>Caching should be up to four 16-bits pointers (displacements) per record<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h3>Factory Reset</h3>
+  </li>
+  <ol>
+    <li>Storage must support records marked as Factory Record</li>
+    <li>Factory Records must be retained after factory reset</li>
+    <li>Factory Reset must be able to work by (bootloader) erasing specific sectors range</li>
+    <li>Factory Records may reside on:</li>
+    <ol>
+      <li>Isolated set of sectors</li>
+      <li>A copy of them in bootloader accessible sectors</li>
+    </ol>
+    <li>A Factory Record may not be over written with another Factory record (with the same key)</li>
+    <ol>
+      <li>A Factory Record may be over written with another<span style="font-weight: bold;"> none </span>Factory record (with the same key)</li>
+    </ol>
+  </ol>
+  <li>
+    <h3>Update Image(s)</h3>
+  </li>
+  <ol>
+    <li>Need to support large and stable records, called images</li>
+    <ol>
+      <li>Support is done via a different set of API then regular records<br>
+      </li>
+    </ol>
+    <li>Assume raw flash access with dedicated range(s) of sectors<br>
+    </li>
+    <li>Each image is initially created (erased) with known size rounded up to full sector count</li>
+    <li>Image is expected to be written partially at every given write</li>
+    <ol>
+      <li>Writes may be done in any order</li>
+      <li>Every write may not overlap previous write</li>
+    </ol>
+    <li>Image meta-data is staored on a regular record</li>
+  </ol>
+  <li>
+    <h3>Portability</h3>
+  </li>
+  <ol>
+    <li>Storage - Target platform may provides one of the following:</li>
+    <ol>
+      <li>File-system with at least FAT-FS capability<br>
+      </li>
+      <li>Single pre-allocated file with Read, Write, Seek and Sync operations<br>
+      </li>
+      <li>Raw flash driver with CMSIS-Driver&nbsp; Version 2.04 - Flash Interface definition<br>
+      </li>
+    </ol>
+    <ol>
+      <li>Storage for image and factory reset support</li>
+      <ol>
+        <li>Requires access to raw flash with range defenition</li>
+        <li>Requires access for large files support in (if) available FS<br>
+  </li>
+      </ol>
+    </ol>
+    <li>Security - Target platform may provides one of the following:</li>
+    <ol>
+      <li>Not needed</li>
+      <ol>
+        <li>The entire provided storage is considered secure and no extra work is needed - e.g. internal flash</li>
+        <ol>
+          <li>Variation is a Secure FS that allow per file setting of secure quality<br>
+          </li>
+        </ol>
+      </ol>
+      <li>Address of RoT. Address may be memory mapped address or sector address</li>
+      <li>Function the get RoT and should be used with any RoT usage</li>
+      <li>Encrypt / Decrypt functions</li>
+      <ol>
+        <li>Normally same function that uses private RoT key</li>
+      </ol>
+    </ol>
+    <li>Asynchronous support - Events</li>
+    <ol>
+      <li>No callbacks should be used</li>
+      <li>Any asynchronous action will be implemented via dispatching some event into some event queue</li>
+      <li>Event queue will support context management</li>
+      <ol>
+        <li>Allocation</li>
+        <li>Usage count</li>
+        <li>Automatic free on event done</li>
+        <li>Allow events chaining of context for Zero Copy Buffer operation<br>
+        </li>
+        <li>Automatic Free on last usage</li>
+      </ol>
+      <li>Callbacks will be available for registration of required events handling</li>
+    </ol>
+  </ol>
+</ol>
+<h2>Client API</h2>
+<ol>
+  <li>PAL Record TLV(type, length, value)<br>
+  </li>
+  <ol>
+    <li>Each TLV could be of types:</li>
+    <ol>
+      <li>Null</li>
+      <li>String (doesn't have to be NULL terminated but may be within size limits)<br>
+  </li>
+      <li>BinHex</li>
+      <ol>
+        <li>may fail if written string isn't composed of '0'-'9','a'-'f','A'-'F'<br>
+    </li>
+        <li>may be stored as binary but must be read as bin hex string<br>
+    </li>
+      </ol>
+      <li>Binary<br>
+  </li>
+    </ol>
+  </ol>
+  <li>PAL_Record_CreateKey(TLV Prefix, TLV Midfix, TLV Postfix, out KEY key, boolean secure, boolean factory_value, RWD accessible)</li>
+  <ol>
+    <li>Each TLV can be up to 128 bytes in length</li>
+    <li>Typical usage for provisioning</li>
+    <ol>
+      <li>Prefix is static like "com.arm.mbed.spv.sst."</li>
+      <li>Midfix is account UUID (or Iprs)<br>
+      </li>
+      <li>Postfix us asset name</li>
+    </ol>
+    <li>secure true means that the value must be encrypted if it is located on external (to the chip) storage</li>
+    <ol>
+      <li>key and meta-date needs not be encrypted</li>
+      <li>Everything must be signed<br>
+      </li>
+    </ol>
+    <li>factory_value true means that the data or a copy of the data must be stored on a separate safe sectors range (typically on internal flash)</li>
+    <ol>
+      <li>In any case the data will be written initially as a regular record</li>
+      <ol>
+        <li>If the safe data is available for normal read then the regular record may be deleted after completing writing the value to safe sectors</li>
+      </ol>
+      <li>factory_value may be true only once per key</li>
+      <ol>
+        <li>i.e. it is a write once value</li>
+        <li>Any extra writes must be with factory_value equal false<br>
+        </li>
+      </ol>
+    </ol>
+    <li>accessible true mean that everyone can access the data according to RWD bit map<br>
+    </li>
+    <ol>
+      <li>If zero then only the creating context (e.g. box) (of the key) can access it&nbsp;</li>
+      <li>R - Read access</li>
+      <li>W - Write access</li>
+      <li>D - Delete access<br>
+      </li>
+    </ol>
+  </ol>
+  <li>PAL_Record_GetKeyInfo(key, out Prefix, out Midfix, out Postfix, out secure, out factory_value, out accessible)</li>
+  <li>PAL_Record_ListKeys(out size, out keys[])</li>
+  <ol>
+    <li>size is number of keys<br>
+    </li>
+    <li>keys is an array of keys <br>
+    </li>
+  </ol>
+  <li>PAL_Record_WriteData(key, value)</li>
+  <ol>
+    <li>Key created with Create_Key</li>
+    <li>Value is TLV<br>
+    </li>
+  </ol>
+  <li>PAL_Record_WriteMetaData(key, meta-data)<br>
+  </li>
+  <ol>
+    <li>Key created with CreateKey</li>
+    <li>Value is TLV<br>
+  </li>
+  </ol>
+  <li>PAL_Record_ReadData(key, out buffer, event_ID=NULL)<br>
+  </li>
+  <ol>
+    <li>Key created with CreateKey</li>
+    <li>Buffer is a TLV with zeroed value area</li>
+    <li>Event_ID must be NULL<br>
+    </li>
+  </ol>
+  <li>PAL_Record_ReadMetaData(key, out buffer, event_ID=NULL)</li>
+  <ol>
+    <li>Key created with CreateKey</li>
+    <li>Buffer is a TLV with zeroed value area</li>
+    <li>Event_ID must be NULL</li>
+  </ol>
+  <li>PAL_Record_Delete(key)</li>
+  <ol>
+    <li>Key created with CreateKey</li>
+    <li>If key is a Factory value then the operation will fail</li>
+    <li>If key has also an identical Factory value key then the operation will delete the regular record only<br>
+  </li>
+  </ol>
+  <li>PAL_Record_Sync()</li>
+  <ol>
+    <li>Returns when all pending operations have being completed and there are no events to dispatch for asynchronous operations</li>
+    <li>This operation is also a recommendation to do a GC if needed<br>
+    </li>
+  </ol>
+  <li>Return status - beside various error condition the following 3 return values may be returned for synchronous PAL_Record_* calls<br>
+  </li>
+  <ol>
+    <li>Success - Operation completed<br>
+    </li>
+  </ol>
+  <ol>
+    <li>Blocked</li>
+    <ol>
+      <li>Not for PAL_Record_Sync call</li>
+      <li>I/O subsystem is blocked now</li>
+      <li>Synchronous should be retried</li>
+      <li>Asynchronous calls are queued with a limited queue and should not (but might) received this status<br>
+      </li>
+    </ol>
+    <li>Delayed</li>
+    <ol>
+      <li>This is an asynchronous operation</li>
+      <li>Async_Write<small>_</small>Complete event signify its completion</li>
+      <ol>
+        <li>Event context contains 'key'<br>
+        </li>
+      </ol>
+      <li>For PAL_Record_Write_* calls</li>
+      <ol>
+        <li>Operation will be completed shortly<br>
+        </li>
+      </ol>
+      <li>For PAL_Record_Create_Key call</li>
+      <ol>
+        <li>Operation will be completed shortly</li>
+      </ol>
+      <ol>
+        <li>key is valid immediately<br>
+        </li>
+      </ol>
+      <li>Note that the caller has no way to
+control if a write operation is synchronous or not</li>
+      <ol>
+        <li>For synchronous operation on asynchronous platforms this
+status may be ignored and write operations are guaranteed to be done
+only afterPAL_Record_Sync() </li>
+      </ol>
+    </ol>
+  </ol>
+  <li>Image Handling<br>
+  </li>
+  <ol>
+    <li>PAL_Image_Create(key, size)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>Size in bytes rounded up to flash sector granularity<br>
+      </li>
+    </ol>
+    <li>PAL_Image_Write(key, displacement, size, out buffer)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>displacement is from image start</li>
+      <li>size is the data size from buffer to be written</li>
+      <li>displacement plus size must be smaller then image size<br>
+      </li>
+    </ol>
+    <li>PAL_Image_Read(key, displacement, size, buffer)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>displacement is from image start</li>
+      <li>size is the data size to be read and written into buffer</li>
+      <li>displacement plus size must be smaller then image size</li>
+    </ol>
+    <li>PAL_Image_GetInfo(key, out start_address, out size)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>start_address is a return value if data is directly readable and -1 if it's not directly readable</li>
+      <li>size is a return value if data is directly readable and 0 if it's not directly readable</li>
+    </ol>
+    <li>PAL_Image_Delete(key)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>Key is deleted with the image<br>
+      </li>
+      <ol>
+        <li>If key is a Factory value then the operation will succeed but only the image will be delete and the key will remain<br>
+        </li>
+      </ol>
+    </ol>
+  </ol>
+  <li>Asynchronous handling</li>
+  <ol>
+    <li>PAL_Record_RegisterDoneIOLock(event_ID)</li>
+    <ol>
+      <li>event_ID is dispatched when all pending operations have being
+completed and there are no other events to dispatch for asynchronous
+operations</li>
+    </ol>
+    <li>PAL_Record_RegisterAsyncWriteComplete(event_ID)</li>
+    <ol>
+      <li>event_ID is dispatched when pending write or create key operations have being completed</li>
+      <li>Event context contains 'key'</li>
+    </ol>
+    <li>PAL_Record_ASync()</li>
+    <ol>
+      <li>Returns immediately</li>
+      <li>Sends Done_IO_Lock event when all pending operations have being completed and there are no other events to dispatch for asynchronous operations</li>
+      <li>This operation is also a recommendation to do a GC if needed<br>
+  </li>
+    </ol>
+    <li>PAL_Record_ReadData(key, buffer=NULL, event_ID)<br>
+    </li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>Event_ID contains the event to receives read operation with TLV buffer as the event context<br>
+      </li>
+      <li>buffer must be NULL</li>
+      <li>Function returns immediately but event may be dispatched before it returns<br>
+      </li>
+    </ol>
+    <li>PAL_Record_ReadMetaData(key, buffer=NULL, event_ID)</li>
+    <ol>
+      <li>Key created with Create_Key</li>
+      <li>Event_ID contains the event to receives read operation with TLV buffer as the event context</li>
+      <li>buffer must be NULL</li>
+      <li>Function returns immediately but event may be dispatched before it returns</li>
+    </ol>
+  </ol>
+</ol>
+<h2>Platform Pluggable Items and relevant Platform API</h2>
+<ol>
+  <li>
+    <h3>Storage:</h3>
+  </li>
+  <ol>
+    <li>All addresses / location must be 32 bit alligned (2 lower bits must be zero)</li>
+    <li>All sizes must be in 32 bit granularity (2 lower bits must be zero)</li>
+  </ol>
+  <li>
+    <h4>File System:</h4>
+  </li>
+  <ol>
+    <li>PAL_Plat_FS_OpenFile(file_name, out FD)</li>
+    <ol>
+      <li>File name is up to 8 characters with fixed 3 characters extension</li>
+      <li>Return file descriptor (FD)</li>
+      <li>If file doesn't exist then it is created<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_FS_DeleteFile(FD)</li>
+    <ol>
+      <li>Fail if file doesn't exist<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_FS_WriteFile(FD, length, buffer)</li>
+    <ol>
+      <li>No concept of file location</li>
+      <ol>
+        <li>All writes start from file start<br>
+        </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_FS_WriteSecureFile(FD, length, buffer) - optional API</li>
+    <ol>
+      <li>Function pointer is NULL if functionality of per file security isn't available<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_FS_ReadFile(FD, buffer_length, out buffer, out read_length)</li>
+    <ol>
+      <li>No concept of file location</li>
+      <ol>
+        <li>All reads start from file start<br>
+    </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_FS_Init()</li>
+    <li>PAL_Plat_FS_Sync()</li>
+    <ol>
+      <li>Synchronous call</li>
+      <li>Suggestion only as each file may be committed upon write completion<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h4>Single preallocated File:</h4>
+  </li>
+  <ol>
+    <li>PAL_Plat_File_Write(length, buffer)</li>
+    <ol>
+      <li>Write to current file location</li>
+      <ol>
+        <li>Set file location to old value plus length<br>
+        </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_File_Read(length, out buffer)</li>
+    <ol>
+      <li>If read overrun file end then the operation fails and buffer content is undefined<br>
+      </li>
+      <li>Read from current file location</li>
+      <ol>
+        <li>Set file location to old value plus read_length
+    </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_File_Seek(type, displacement)</li>
+    <ol>
+      <li>type is relative to previous file location or absolute</li>
+      <li>If file location overrun file end then it is set to file end with appropriate return status<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_File_Init_File(size)</li>
+    <ol>
+      <li>File is created and preallocated according to 'size'</li>
+      <li>File is fully cleared (all zero)</li>
+      <li>If file exist it is zeroed with 'exist' return status </li>
+    </ol>
+    <li>PAL_Plat_File_Sync()</li>
+    <ol>
+      <li>Synchronous call</li>
+      <li>Suggestion only as each write may be committed upon write completion<br>
+    </li>
+    </ol>
+  </ol>
+  <li>
+    <h4>Raw Flash Driver:</h4>
+  </li>
+  <ol>
+    <li>PAL_Plat_Flash_GetSectorsRanges(out numOfRanges, out ranges[]{type, sectorSize, start, end)</li>
+    <ol>
+      <li>numOfRanges - number of continues NVM address ranges available</li>
+      <ol>
+        <li>Range 'type' could be:</li>
+        <ol>
+          <li>1 for records storage</li>
+          <li>2 for Factory values (write once, no delete) storage</li>
+          <li>3 images storage<br>
+          </li>
+        </ol>
+      </ol>
+      <li>ranges - array size of 'numOfRanges', each entry contains 'sectorSize', 'start' and 'end'<br>
+      </li>
+      <ol>
+        <li>sectorSize - ((end - start + 1) % sectorSize) must equal zero.<br>
+        </li>
+        <li>start - start address of first sector in available sector range</li>
+        <li>end - end address of last sector in available sector range</li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_Flash_SetDoneEvent)(PAL_Plat_Flash_SignalEvent_t cb_event)</li>
+    <ol>
+      <li>The parameter cb_event is a pointer to the PAL_Plat_Flash_SignalEvent callback function</li>
+      <ol>
+        <li>use a NULL pointer when no callback signals are required</li>
+        <li>Event receives:</li>
+        <ol>
+          <li><span style="font-family: monospace;">PAL_Plat_FLASH_EVENT_READY&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; </span>Occurs after read/program/erase operation completes.</li>
+          <li><span style="font-family: monospace;">PAL_Plat_FLASH_EVENT_ERROR&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp; </span>Occurs instead of PAL_Plat_FLASH_EVENT_READY when operation completes with an error<br>
+          </li>
+        </ol>
+      </ol>
+    </ol>
+    <li>PAL_Plat_Flash_GetStaus(out status)</li>
+    <ol>
+      <li>Status is:</li>
+      <ol>
+        <li><span style="font-family: monospace;">PAL_Plat_FLASH_STATUS_READY&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; </span>All read/program/erase operations completed</li>
+        <li><span style="font-family: monospace;">PAL_Plat_FLASH_STATUS_ERROR&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp; </span>Last read/program/erase operations completed with an error</li>
+        <li><span style="font-family: monospace;">PAL_Plat_FLASH_STATUS_ERASE &nbsp;&nbsp; 2 &nbsp;&nbsp; </span>Erase operation in progress</li>
+        <li><span style="font-family: monospace;">PAL_Plat_FLASH_STATUS_WRITE &nbsp;&nbsp; 3 &nbsp;&nbsp; </span>Program operation in progress</li>
+        <li><span style="font-family: monospace;">PAL_Plat_FLASH_STATUS_READ &nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp; </span>Read operation in progress</li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_Flash_ReadData(target, length, out buffer)</li>
+    <ol>
+      <li>target - A pointer to flash start address<br>
+      </li>
+      <li>length - Length to be read</li>
+      <ol>
+        <li>Inability to read the entire length will result with the failure of the operation<br>
+        </li>
+      </ol>
+      <li>buffer - A pointer to the destination of the read data<br>
+      </li>
+    </ol>
+    <ol>
+      <li>Operation is usually synchronous and returns when the operation completes<br>
+      </li>
+      <li>Operation might be asynchronous and returns immediately with status NOT_COMPLETE</li>
+      <ol>
+        <li>GetStatus or DoneEvent should be used to determines when the operation completes and the buffer is valid<br>
+        </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_Flash_ProgramData(target, length, buffer)</li>
+    <ol>
+      <li>target - A pointer to flash start address<br>
+  </li>
+      <li>length - Length to be written<br>
+      </li>
+      <ol>
+        <li>Inability to write the entire length will result with the failure of the operation<br>
+    </li>
+      </ol>
+      <li>buffer - A pointer to the source of the written data<br>
+  </li>
+      <li>Operation could be synchronous and returns when the operation completes<br>
+  </li>
+      <li>Operation could be asynchronous and returns immediately with status NOT_COMPLETE</li>
+      <ol>
+        <li>GetStatus or DoneEvent should be used to determines when the operation completes<br>
+    </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_Flash_EraseSectors(start, end)</li>
+    <ol>
+      <li>Erase all sectors between and including the sector that contains 'start' address and the sector that contains 'end' address</li>
+      <ol>
+        <li>Erase all data to zero</li>
+        <li>If flash erase results in all one then all reads and writes must be negated by the lower driver<br>
+        </li>
+      </ol>
+      <li>'start' must less then or equal to 'end'</li>
+      <li>Note not to point 'end' to after the last byte of the last sector</li>
+      <li>Operation is alway asynchronous and returns immediately with status NOT_COMPLETE</li>
+      <ol>
+        <li>GetStatus or DoneEvent should be used to determines when the operation completes</li>
+      </ol>
+    </ol>
+  </ol>
+  <li>
+    <h3>RoT:</h3>
+  </li>
+  <ol>
+    <li>Only one of the options below is implemented. All the rest have NULL function pointer</li>
+    <li>PAL_Plat_RoT_StorageSecure</li>
+    <ol>
+      <li>Just setting this value (function pointer) to not NULL is enough<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_RoT_SelctiveSecureFS</li>
+    <ol>
+      <li>Just setting this value (function pointer) to not NULL is enough</li>
+    </ol>
+    <li>PAL_Plat_RoT_KeyAddress</li>
+    <ol>
+      <li>Pointer to a location that keep the key</li>
+      <ol>
+        <li>Key should not be copied to memory and should be used directly from its specified location<br>
+        </li>
+      </ol>
+    </ol>
+    <li>PAL_Plat_RoT_GetKey(256bitBuffer, out keySize)</li>
+    <ol>
+      <li>keySize may be either 256 or 128</li>
+      <li>Key must be used temporary from stack and must not be copied to anywhere else<br>
+      </li>
+    </ol>
+    <li>PAL_Plat_RoT_Encrypt(size, inBuffer, outBuffer)</li>
+    <ol>
+      <li>PAL_Plat_RoT_Decrypt(size, inBuffer, outBuffer)</li>
+      <li>Those functions pair might be implemented with the same function pointer</li>
+    </ol>
+    <li>PAL_Plat_Secu_GetContext(out secureContextID)</li>
+    <ol>
+      <li>secureContextID - platform specific 64bits ID that allow correlation between key creator ans value accessors<br>
+      </li>
+    </ol>
+  </ol>
+  <li>
+    <h3>Event System:</h3>
+  </li>
+  <ol>
+    <li>Event system must (at least) support the following API</li>
+    <li>PAL_Infra_Event_Dispatch(event, context)</li>
+    <ol>
+      <li>Create an event to be executed later</li>
+      <li>event is an event_ID</li>
+      <li>context is created with AlocateContext</li>
+      <ol>
+        <li>context reference count increment by one during dispatching</li>
+      </ol>
+    </ol>
+    <li>PAL_Infra_Event_Register(event, func_ptr, microseconds max_required_time, KB required stack)</li>
+    <ol>
+      <li>event is an event_ID</li>
+      <li>func_ptr(event, context) receives the event_ID and optional context<br>
+      </li>
+      <ol>
+        <li>context reference count decrement by one when func_ptr exits<br>
+        </li>
+      </ol>
+    </ol>
+    <li>PAL_Infra_Event_AlocateContext(size, out context)</li>
+    <ol>
+      <li>context reference count increment by one during allocation</li>
+    </ol>
+    <li>PAL_Infra_Event_DoneContext(context)</li>
+    <ol>
+      <li>context reference count decrement by one in DoneContext</li>
+      <li>DoneContext() must be call after calling Dispatch()</li>
+    </ol>
+  </ol>
+</ol>
+
+
+
+
+
+
+
+
+<h2>Layers:</h2>
+Components based implementation:<br>
+
+<ul>
+  <li>Keys handling</li>
+<ul>
+    <li>Keys meta-data - in memory index file<br>
+    </li>
+</ul>
+  <li>Record 3 forks</li>
+  <li>Signing<br>
+  </li>
+  <li>Encryptions</li>
+  <li>Allocation</li>
+<ul>
+    <li>per record header</li>
+</ul>
+  <li>GC</li>
+  <li>Bad sectors</li>
+  <li>Images storage handling</li>
+  <li>Write once storage handling<br>
+  </li>
+</ul>
+<div style="text-align: center;">
+<pre>ARM Confidential Restricted</pre>
+
+</div>
+</body></html>
