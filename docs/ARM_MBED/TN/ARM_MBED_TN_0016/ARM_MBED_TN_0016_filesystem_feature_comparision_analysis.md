@@ -39,7 +39,7 @@ The conclusions of the analysis can be summarised as follows:
 - Keil DFFS is well credible, well architected, well documented, has NAND support, bad block management, wear levelling, EEC
 - It’s questionable whether the DFFS/YAFFS RAM footprint can scale from an estimated minimum of X~16-20kB (based on the documented data structure sizes) down to 2-4kB (the RAM footprint requirement). YAFFS2 documentation suggests its possible, Keil documentation is insufficiently detailed to know.
 
-![alt text](pics/ARM_MBED_TN_0016_fs_ram_footprint_plot.jpg "unseen title text")
+![alt text](pics/ARM_MBED_TN_0016_fs_ram_footprint_plot2.jpg "unseen title text")
 **Figure 1. Zones of achievable filesystem RAM footprint size versus data storage size.**
 
 The figure above shows the following:
@@ -119,17 +119,17 @@ See the following section for more details.
 
 ## <a name="filesystem-features-flash-device-support-and-software-architecture"></a> Filesystem Features, Flash Device Support and Software Architecture
 
-![alt text](pics/ARM_MBED_TN_0016_xls_page1.bmp "unseen title text")
+![alt text](pics/ARM_MBED_TN_0016_xls_page1.jpg "unseen title text")
 **Figure 3. Filesystem Features, Flash Device Support and Software Architecture**
 
 ## <a name="filesystem-memory-footprints"></a> Filesystem Memory Footprints
 
-![alt text](pics/ARM_MBED_TN_0016_xls_page2.bmp "unseen title text") 
+![alt text](pics/ARM_MBED_TN_0016_xls_page2.jpg "unseen title text") 
 **Figure 4. Filesystem Memory Footprints.** 
 
 ## <a name="industry-credibility-and-uvisor-securability"></a> Industry Credibility and Uvisor Securability
 
-![alt text](pics/ARM_MBED_TN_0016_xls_page3.bmp "unseen title text")
+![alt text](pics/ARM_MBED_TN_0016_xls_page3.jpg "unseen title text")
 **Figure 5. Industry Credibility and Uvisor Securability**
 
 
