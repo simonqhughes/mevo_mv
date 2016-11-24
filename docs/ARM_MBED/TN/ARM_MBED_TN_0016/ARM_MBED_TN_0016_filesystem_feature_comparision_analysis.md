@@ -137,4 +137,4 @@ See the following section for more details.
 
 * The [Filesystem Feature Analysis Spreadsheet][FS_XLS]
 
-[FS_XLS]: doc/filesystem_feature_comparison_analysis.xlsx
+[FS_XLS]: docs/filesystem_feature_comparison_analysis.xlsx
