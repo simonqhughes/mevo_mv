@@ -46,7 +46,7 @@ The conclusions of the analysis can be summarised as follows:
 - Keil DFFS is credible, well architected, well documented, has NAND and NOR support, bad block management, wear levelling and EEC.
 - It’s questionable whether the DFFS/YAFFS RAM footprint can scale from an estimated minimum of Y~16-20kB (based on the documented data structure sizes, see figure below) down to 2-4kB (the RAM footprint requirement). 
   YAFFS2 documentation suggests its possible, whereas the Keil documentation is insufficiently detailed to know.
-- Irrespective of the difference between NOR and NAND flash (e.g. random versus block read access, write access times), both Media Technolody Devices (MTD) are present within the system with the same program()/erase() block sematics at
+- Irrespective of the difference between NOR and NAND flash (e.g. random versus block read access, write access times), both Media Technolody Devices (MTD) are presented within the system with the same program()/erase() block sematics at
   the driver level. It should be up to the system designer to enable/disable filesytem storage features (bad block management, EEC, wear levelling) irrespective of the MTD type.
     - SPI NOR parts are characterised by being byte readable, and sometime byte writable e.g. [Spansion SPI NOR flash part][FLASH_SPANSION_01] or the [Microchip SPI NOR flash part][FLASH_MICROCHIP_01].
     - SPI NAND parts are characterised by being page readable and writable e.g. [Micron SPI NAND flash part][FLASH_MICRON_02_SPI_NAND].
