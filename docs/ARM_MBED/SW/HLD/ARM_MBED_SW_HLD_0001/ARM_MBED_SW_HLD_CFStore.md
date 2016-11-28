@@ -664,15 +664,13 @@ This feature is currently under development. Thoughts include:
 
 # <a name="references"></a> References 
 
-* The [CFSTORE Product Requirements][CFSTORE_PRODREQ]
 * The [CFSTORE Engineering Requirements][CFSTORE_ENGREQ]
 * The [CFSTORE High Level Design Document][CFSTORE_HLD]
 * The [CFSTORE Low Level Design Document][CFSTORE_LLD]
 * The [CFSTORE Terminology for definition of terms used in CFSTORE documents][CFSTORE_TERM]
 
-[CFSTORE_PRODREQ]: doc/design/configuration_store_product_requirements.md
-[CFSTORE_ENGREQ]: doc/design/configuration_store_requirements.md
-[CFSTORE_LLD]: doc/design/configuration_store_lld.md
-[CFSTORE_HLD]: doc/design/configuration_store_hld.md
-[CFSTORE_TERM]: doc/design/configuration_store_terminology.md
+[CFSTORE_ENGREQ]: https://github.com/ARMmbed/mbed-os/blob/master/features/storage/FEATURE_STORAGE/cfstore/doc/design/configuration_store_requirements.md
+[CFSTORE_LLD]: https://github.com/ARMmbed/mbed-os/blob/master/features/storage/FEATURE_STORAGE/cfstore/doc/design/configuration_store_lld.md
+[CFSTORE_HLD]: https://github.com/ARMmbed/mbed-os/blob/master/features/storage/FEATURE_STORAGE/cfstore/doc/design/configuration_store_hld.md
+[CFSTORE_TERM]: https://github.com/ARMmbed/mbed-os/blob/master/features/storage/FEATURE_STORAGE/cfstore/doc/design/configuration_store_terminology.md
 [KEIL_CMSIS_DRIVER]: http://www.keil.com/pack/doc/CMSIS/Driver/html/index.html
