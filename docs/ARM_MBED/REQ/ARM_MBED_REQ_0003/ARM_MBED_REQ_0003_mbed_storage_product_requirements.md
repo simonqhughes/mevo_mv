@@ -12,117 +12,149 @@ Status: DRAFT
 
 # <a name="introduction"></a> Introduction
 
-This document attempts to articulate the mbed storage product requirements.
+This aim of this document is to articulate the mbed storage product requirements.
 
-# Product Requirements
+# Overview 
 
-This section captures the high level storage product requirements applicable across the mbed solution components.
+The mbed storage endpoint functionality is envisaged to be partitioned into to the following functional components:
 
+- NVStore.
+- Filesystem Store.
 
-## Portability
+The feature cut between above components is described in the table below.
 
-This section documents the requirements needed to ensure the IoT storage solution has wide applicability.
-
-**PROD-REQ-PORT-0001:** The storage solution must be capable of being ported to 99% of available IoT Operating Systems.
-
-**PROD-REQ-PORT-0002:** The storage solution must be capable of being implemented on 99% of available IoT devices.
-
-**PROD-REQ-PORT-0003:** The storage solution must be configurable so features can be disabled/enabled and thereby decrease/increase the required system resources 
-( e.g. SRAM, code size, flash storage requirements). The solution can then be targeted at a range of device capabilities e.g. M0, M1, M3, M4, M7 for ARM-Mv7, ARM-Mv8 etc).
-
-
-## Storage Clients
-
-- The mbed Cloud Client is a user of the storage solution and therefore the Cloud Client storage requirements must be supported by the storage solution. 
-  They are documented in the [mbed Cloud Client section](#mbed-cloud-product-requirements).
-
-
-## Stored Object Types, Locations and Security
-
-**PROD-REQ-OBJTYPE-0001:** The storage solution must be capable storing a 128bit cypher key in on-chip storage. They key can then be used to secure other NV stored e.g. off-chip.
-
-**PROD-REQ-OBJTYPE-0002:** The storage solution must be capable storing a firmware images off-chip. 
-
-
-## Security
-
-
-
-# NVStore Product Requirements
-
-# Filesystem Product Requirements
-
-# <a name="mbed-cloud-product-requirements"></a> mbed Cloud Product Requirements
-
-### Product Requirement 1: NVStore 
-
-The product must be able to persistently store a small set of data items (e.g. a 128bit cypher key, a certificate chain)
-which are used to secure the rest of the system. This store will be called NVStore. The size of the NVStore must be 
-no less than 16kB.
-
-
-#### Informational
-
-- An envisaged product scenario is that the SoC on-chip flash will be used for the NVStore. By virtue of this flash
-  storage being internal to the SoC and flash read/write operations being conducted entirely withing the chip (no external visibility), 
-  the key is relatively secure (compared to being stored in external media) and can be more easily securely managed 
-  The existence of the NVStore containing the key is a prerequisite to encrypting data for external storage.
-  
-
-### Product Requirement 2: Filesystem Store.
-
-The product must be able to persistently store large data objects (e.g. 
-
-
-### Product Requirement 3: NVStore API: should be a POSIX file interface
-
-may relax this requirement if Minimal Resource Requirement cannot be met.
-
-
-### Product Requirement 4: NVStore API: Minimal Resource Requirements 
-
-i.e. must be capable being implemented on approx. 99% of IoT devices consuming approx. <= 10% of system resources
-
-### Product Requirement 5: NVStore RAM Footprint: must be less than 10% of available SRAM (~2kB) so that  
-
-
-
-|             |          Grouping           ||
-First Header  | Second Header | Third Header |
- ------------ | :-----------: | -----------: |
-Content       |          *Long Cell*        ||
-Content       |   **Cell**    |         Cell |
-
-New section   |     More      |         Data |
-And more      | With an escaped '\|'         ||  
-[Prototype table]
-
-
-\begin{array} {|r|r|}
-\hline
-1 &2 \\
-\hline
-3 &4 \\
-\hline
-\end{array}
-
+**Storage Component Feature Analysis**
 
 <table>
 <thead>
 <tr>
-  <th>First Header</th>
-  <th>Second Header</th>
+  <th>Feature</th>
+  <th>NVStore</th>
+  <th>Filesystem Store</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-  <td>Content Cell</td>
-  <td>Content Cell</td>
+  <td>Security</td>
+  <td>Is secure and must run in a security context (uvisor)</td>
+  <td>Is secure and should run in a security context (uvisor)</td>
 </tr>
 <tr>
-  <td>Content Cell</td>
-  <td>Content Cell</td>
+  <td>Security</td>
+  <td>Stores root of trust key</td>
+  <td>Does not store root of trust key</td>
 </tr>
+  <td>Security</td>
+  <td>May not be encrypted.</td>
+  <td>Must be encrypted if held on off-chip storage.</td>
+</tr>
+<tr>
+  <td>Endurance</td>
+  <td>Written 10-100 times during product lifetime (1 time/year-1 time/month)</td>
+  <td>Written 10^5-10^6 times during product lifetime (10+ times/day)</td>
+</tr>
+<tr>
+  <td>Physical Location</td>
+  <td>Should be on-chip</td>
+  <td>Should be off-chip</td>
+</tr>
+<tr>
+  <td>Physical Location</td>
+  <td>On-chip is NOR flash with 
+  NAND like restrictions due to flash memory controller.</td>
+  <td>A key use case is SPI NOR flash as the storage backend.</td>
+</tr>
+<tr>
+  <td>Physical Location</td>
+  <td></td>
+  <td>A key use case is SPI NAND flash as the storage backend.</td>
+</tr>
+<tr>
+  <td>Physical Location</td>
+  <td></td>
+  <td>A key use case is SPI SDCard/MMC as the storage backend.</td>
+</tr>
+<tr>
+  <td>Wear Levelling</td>
+  <td>Not required due to 
+  small number of write/erase operations</td>
+  <td>Required due to large number of writes/erase operations</td>
+</tr>
+<tr>
+  <td>EEC</td>
+  <td>Error Correction Codes (ECC) not required 
+  due to stability of storage</td>
+  <td>Error Correction Codes (ECC)  required due to instability of NAND storage (NAND is a key use case).</td>
+</tr>
+<tr>
+  <td>Bad Block management</td>
+  <td>Required.</td>
+  <td>Required.</td>
+</tr>
+<tr>
+  <td>Robustness against power failures</td>
+  <td>Required.</td>
+  <td>Required.</td>
+</tr>
+<tr>
+  <td>Journaling</td>
+  <td>Required for robustness against power failures.</td>
+  <td>Required for robustness against power failures.</td>
+</tr>
+<tr>
+  <td>Sequential Writes</td>
+  <td>NAND: sequential writing required 
+  (no rewriting of previous journaled entries).</td>
+  <td>NAND: sequential writing required (no rewriting of previous journaled entries).</td>
+</tr>
+<tr>
+  <td>API</td>
+  <td>API: Should be the POSIX file interface, may be something different.</td>
+  <td>API: Must be the POSIX file interface.</td>
+</tr>
+<tr>
+  <td>System Impact</td>
+  <td>Storage operations may be invasive/disruptive to the system.</td>
+  <td>Storage operations must not be invasive or disruptive to the system.</td>
+</tr>
+<tr>
+  <td>System Impact</td>
+  <td>Storage operations may disable interrupts (causing high interrupt latency).</td>
+  <td>Storage operations must not disable interrupts.</tr>
+</tr>
+<tr>
+  <td>System Impact</td>
+  <td>Storage operations may require a system reboot after an operation</td>
+  <td>Storage operations must not require a reboot after an operation.</td>
+</tr>
+<tr>
+  <td>System Impact</td>
+  <td>Storage operations may use in-application programming techniques (use of RAMFUNCS).</td>
+  <td>Storage operations should not be use in-application programming techniques.</td>
+</tr>
+<tr>
+  <td>System Impact</td>
+  <td>Concurrent storage operations may have a very small number of file (or file equivalent) entities open concurrently e.g. maximum 2.</td>
+  <td>Concurrent storage operations may have a small number of file (or file equivalent) entities open concurrently e.g. maximum 10 (configurable).</td>
+</tr>
+<tr>
+  <td>Portability</td>
+  <td>Required. Must be capable of being ported to 99% of all IoT devices.</td>
+  <td>Required. Must be capable of being ported to 99% of all IoT devices.</td>
+</tr>
+  <td>Portability (Minimal Resources)</td>
+  <td>Must need minimal system resources so NVSTORE can be implemented on the smallest of devices e.g. 2-4kB SRAM and 10-15kB code flash.</td>
+  <td>May require more than minimal system resources e.g. >4kB SRAM, SRAM footprint scaling linearly with store size and number of files,  >>15kB code flash.</td>
+</tr>
+<tr>
+  <td>mbedOS Native Support</td>
+  <td>Required.</td>
+  <td>?</td>
+</tr>
+
 </tbody>
 </table>
+
+
+
 
