@@ -2,9 +2,9 @@
 
 Author: Simon Hughes
 
-Document Version: 0.01
+Document Version: 0.02
 
-Date: 20161122
+Date: 20161202
 
 
 
@@ -12,10 +12,12 @@ Date: 20161122
 
 This document proposes a set of key questions for the Dec 2016 Storage Summit Agenda (~7 Dec 2016). The following participants are attending:
 
+- Daniel Benor
 - Simon Ford
 - Sam Grove
 - Simon Hughes
 - Erez Landau
+- Amyas Philips
 - Marcus Shawcroft
 - Sam Taylor
 - ?
