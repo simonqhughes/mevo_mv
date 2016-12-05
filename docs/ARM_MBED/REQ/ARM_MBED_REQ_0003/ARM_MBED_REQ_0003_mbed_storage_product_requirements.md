@@ -4,9 +4,9 @@ Contributors: Simon Ford, Sam Grove, Simon Hughes, Erez Landau, Marcus Shawcroft
 
 Author: Simon Hughes
 
-Document Version: 0.01
+Document Version: 0.02
 
-Date: 20161201
+Date: 20161205
 
 Status: DRAFT
 
@@ -38,7 +38,7 @@ The feature cut between above components is described in the table below.
 <tbody>
 <tr>
   <td>Security</td>
-  <td>Is secure and must run in a security context (uvisor)</td>
+  <td>Is secure and may run in a security context (uvisor)</td>
   <td>Insecure</td>
   <td>Is secure and should run in a security context (uvisor)</td>
 </tr>
@@ -51,7 +51,7 @@ The feature cut between above components is described in the table below.
   <td>Security</td>
   <td>May not be encrypted.</td>
   <td>Must not be encrypted.</td>
-  <td>Must be encrypted if held on off-chip storage.</td>
+  <td>May be encrypted if held on off-chip storage.</td>
 </tr>
 <tr>
   <td>Endurance</td>
@@ -178,8 +178,6 @@ The feature cut between above components is described in the table below.
 </table>
 
 
-
-
 # Product Requirements On OS Driver Architecture
 
 ## Background Information 
@@ -208,17 +206,11 @@ The figure above show the following entities :
     - This takes blocks from the overlying filesystem and encrypts them before store the same size block on the flash. 
     - This component retrieves requested encrypted) blocks from the flash, decrypts them and forwards to the filesystem. 
     - This component will use the key in the NVStore for the cryptographic operations.
-- (7) Block Store API(ARM-SW). This API is the same as (9) Block Store API but appears here as the top edge of the Filesystem Encryption/Decryption Layer. See (9) for details.
+- (7) Block Store API(ARM-SW). This API is the same as (9) Block Store API but appears here as the top edge of the Filesystem Encryption/Decryption Layer. See (9) and [Appendix A] for more details.
     - `blkstr_write_page_fn` encrypts the block and forwards to the underlying Block Store API `blkstr_write_page_fn` for storing on flash.
     - `blkstr_read_page_fn` retrieves the encrypted block using the underlying Block Store API `blkstr_read_page_fn method`, decrypts and forwards to the overlying filesystem.
 - (8) Other Filesystem (Community)(OTHER-SW). This is another filesystem that can be implemented by the mbedOS community, or ported by an ecosystem FS provider. 
-- (9) Block Store API (ARM-SW). This will typically include the following operations:
-    - `int (*blkstr_write_page_fn)(struct dev_t *dev, int pageId, char* data, size_t len, other params)`. Write a page (chunk of data e.g. 512bytes) within a block (e.g.4kB sector) where the offset is specified by the pageId.
-    - `int (*blkstr_read_page_fn)(struct dev_t *dev, int pageId, char* data, size_t len, other params)`. Read a page (e.g. 512bytes) from a block where the offset is specified by the pageId.
-    - `int (*blkstr_erase_block_fn)(struct dev_t *dev, int blockId)`. Erase the block i.e. the sector.
-    - `int (*blkstr_mark_bad_block_fn)(struct dev_t *dev, int blockId)`. Mark the whole block (i.e. sector) identified by the blockId as bad i.e. put identifying code in sector or OOB area.
-    - `int (*blkstr_init_fn)(struct dev_t *dev)`. Initialise use of device.
-    - `int (*blkstr_deinit_fn)(struct dev_t *dev)`. Deinitialise use of device.
+- (9) Block Store API (ARM-SW). This provides a unifying interface for the underlying internal flash driver and SPI protocol drivers. See [Appendix A] for more details.
 - (10) OS Block Store Glue Code (ARM-SW). This component provides the unifying block store interface over:
     - the internal flash storage driver (~CMSIS-Flash or CMSIS-Driver).
     - SPI Flash Protocol Driver.
@@ -269,3 +261,15 @@ Figure 1 is informational to help communicate the following requirements.
 
 
 
+# Appendices
+
+## <a name="appendix-a-sketch-of-block-store-api"></a> Appendix A: Sketch of Block Store API
+
+A typical block store API would include the following operations:
+
+- `int (*blkstr_write_page_fn)(struct dev_t *dev, int pageId, char* data, size_t len, other params)`. Write a page (chunk of data e.g. 512bytes) within a block (e.g.4kB sector) where the offset is specified by the pageId.
+- `int (*blkstr_read_page_fn)(struct dev_t *dev, int pageId, char* data, size_t len, other params)`. Read a page (e.g. 512bytes) from a block where the offset is specified by the pageId.
+- `int (*blkstr_erase_block_fn)(struct dev_t *dev, int blockId)`. Erase the block i.e. the sector.
+- `int (*blkstr_mark_bad_block_fn)(struct dev_t *dev, int blockId)`. Mark the whole block (i.e. sector) identified by the blockId as bad i.e. put identifying code in sector or OOB area.
+- `int (*blkstr_init_fn)(struct dev_t *dev)`. Initialise use of device.
+- `int (*blkstr_deinit_fn)(struct dev_t *dev)`. Deinitialise use of device.
