@@ -230,7 +230,7 @@ See the following section for more details.
 * The [Micron SPI NAND flash part][FLASH_MICRON_01_EMMC_NAND].
 * The [Micron eMMC NAND flash part][FLASH_MICRON_02_SPI_NAND].
 
-[FS_XLS]: docs/filesystem_feature_comparison_analysis.xlsx
+[FS_XLS]: https://armh.sharepoint.com/sites/Iot-product-o365/_layouts/15/guestaccess.aspx?guestaccesstoken=7jxWDVOw63laNb94UWvZrZj8abrmHEmpS%2bkRJsF4FiA%3d&docid=2_134f166e131894a588b77bda51d0271d9&rev=1
 [FFS_PERFORMANCE_TESTING_01]: http://elinux.org/images/d/d7/Elce2010-flash-filesystems.pdf
 [FLASH_MICROCHIP_01]: http://ww1.microchip.com/downloads/en/DeviceDoc/20005262A.pdf
 [FLASH_MICRON_01_EMMC_NAND]: http://datasheet.octopart.com/MTFC2GMVEA-0M-WT-Micron-datasheet-14049759.pdf
