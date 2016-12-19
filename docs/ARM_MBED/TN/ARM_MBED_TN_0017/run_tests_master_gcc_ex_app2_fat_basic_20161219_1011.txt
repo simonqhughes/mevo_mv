@@ -1,0 +1,113 @@
+mbedgt: greentea test automation tool ver. 1.2.4
+mbedgt: test specification file 'ex_app1_fat_basic_spec.json' (specified with --test-spec option)
+mbedgt: using 'ex_app1_fat_basic_spec.json' from current directory!
+mbedgt: detecting connected mbed-enabled devices...
+mbedgt: detected 1 device
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+	| platform_name | platform_name_unique | serial_port | mount_point | target_id                                        |
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+	| K64F          | K64F[0]              | COM46       | E:          | 0240000029304e450023500878a3001df131000097969900 |
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+mbedgt: processing target 'K64F' toolchain 'GCC_ARM' compatible platforms... (note: switch set to --parallel 1)
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+	| platform_name | platform_name_unique | serial_port | mount_point | target_id                                        |
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+	| K64F          | K64F[0]              | COM46:9600  | E:          | 0240000029304e450023500878a3001df131000097969900 |
+	+---------------+----------------------+-------------+-------------+--------------------------------------------------+
+mbedgt: running 1 test for platform 'K64F' and toolchain 'GCC_ARM'
+	use 1 instance of execution threads for testing
+mbedgt: checking for 'host_tests' directory above image directory structure
+	'host_tests' directory not found: two directory levels above image path checked
+mbedgt: selecting test case observer...
+	calling mbedhtrun: mbedhtrun -m K64F -p COM46:9600 -f "BUILD/tests/K64F/GCC_ARM/mbed-os/features/storage/FEATURE_STORAGE/TESTS/fs-fat/basic/basic.bin" -d E: -C 4 -c shell -t 0240000029304e450023500878a3001df131000097969900
+mbedgt: mbed-host-test-runner: started
+[1482142279.11][HTST][INF] host test executor ver. 1.1.6
+[1482142279.11][HTST][INF] copy image onto target...
+[1482142279.11][COPY][INF] Waiting up to 60 sec for '0240000029304e450023500878a3001df131000097969900' mount point (current is 'E:')...
+        1 file(s) copied.
+[1482142290.40][HTST][INF] starting host test process...
+[1482142290.66][CONN][INF] starting connection process...
+[1482142290.66][CONN][INF] notify event queue about extra 60 sec timeout for serial port pooling
+[1482142290.66][CONN][INF] initializing serial port listener...
+[1482142290.66][PLGN][INF] Waiting up to 60 sec for '0240000029304e450023500878a3001df131000097969900' serial port (current is 'COM46')...
+[1482142290.68][HTST][INF] setting timeout to: 60 sec
+[1482142290.79][SERI][INF] serial(port=COM46, baudrate=9600, timeout=0.01)
+[1482142290.80][SERI][INF] reset device using 'default' plugin...
+[1482142291.05][SERI][INF] waiting 1.00 sec after reset
+[1482142292.05][SERI][INF] wait for it...
+[1482142292.05][SERI][TXD] mbedmbedmbedmbedmbedmbedmbedmbedmbedmbed
+[1482142292.05][CONN][INF] sending up to 2 __sync packets (specified with --sync=2)
+[1482142292.05][CONN][INF] sending preamble '6ae6f255-7f27-4dfb-bda3-2b0764e0037f'
+[1482142292.05][SERI][TXD] {{__sync;6ae6f255-7f27-4dfb-bda3-2b0764e0037f}}
+[1482142292.18][CONN][RXD] mbedmbedmbedmbedmbedmbedmbedmbed
+[1482142292.23][CONN][INF] found SYNC in stream: {{__sync;6ae6f255-7f27-4dfb-bda3-2b0764e0037f}} it is #0 sent, queued...
+[1482142292.23][HTST][INF] sync KV found, uuid=6ae6f255-7f27-4dfb-bda3-2b0764e0037f, timestamp=1482142292.230000
+[1482142292.25][CONN][INF] found KV pair in stream: {{__version;1.3.0}}, queued...
+[1482142292.25][HTST][INF] DUT greentea-client version: 1.3.0
+[1482142292.27][CONN][INF] found KV pair in stream: {{__timeout;300}}, queued...
+[1482142292.28][HTST][INF] setting timeout to: 300 sec
+[1482142292.31][CONN][INF] found KV pair in stream: {{__host_test_name;default_auto}}, queued...
+[1482142292.32][HTST][INF] host test class: '<class 'mbed_host_tests.host_tests.default_auto.DefaultAuto'>'
+[1482142292.32][HTST][INF] host test setup() call...
+[1482142292.32][HTST][INF] CALLBACKs updated
+[1482142292.32][HTST][INF] host test detected: default_auto
+[1482142292.33][CONN][INF] found KV pair in stream: {{__testcase_count;2}}, queued...
+[1482142292.36][CONN][RXD] >>> Running 2 test cases...
+[1482142292.44][CONN][INF] found KV pair in stream: {{__testcase_name;FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.}}, queued...
+[1482142292.51][CONN][RXD]
+[1482142292.51][CONN][INF] found KV pair in stream: {{__testcase_name;FSFAT_test_01: fopen()/fseek()/fclose() test.}}, queued...
+[1482142292.60][CONN][RXD] >>> Running case #1: 'FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.'...
+[1482142292.69][CONN][INF] found KV pair in stream: {{__testcase_start;FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.}}, queued...
+[1482142293.46][CONN][RXD] SD: Writing ... [OK]
+[1482142293.51][CONN][RXD] SD: Reading data ... [OK]
+[1482142293.59][CONN][INF] found KV pair in stream: {{__testcase_finish;FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.;1;0}}, queued...
+[1482142293.68][CONN][RXD] >>> 'FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.': 1 passed, 0 failed
+[1482142293.68][CONN][RXD]
+[1482142293.75][CONN][RXD] >>> Running case #2: 'FSFAT_test_01: fopen()/fseek()/fclose() test.'...
+[1482142293.82][CONN][INF] found KV pair in stream: {{__testcase_start;FSFAT_test_01: fopen()/fseek()/fclose() test.}}, queued...
+[1482142294.14][CONN][INF] found KV pair in stream: {{__testcase_finish;FSFAT_test_01: fopen()/fseek()/fclose() test.;1;0}}, queued...
+[1482142294.21][CONN][RXD] >>> 'FSFAT_test_01: fopen()/fseek()/fclose() test.': 1 passed, 0 failed
+[1482142294.21][CONN][RXD]
+[1482142294.25][CONN][RXD] >>> Test cases: 2 passed, 0 failed
+[1482142294.28][CONN][INF] found KV pair in stream: {{__testcase_summary;2;0}}, queued...
+[1482142294.30][CONN][INF] found KV pair in stream: {{max_heap_usage;0}}, queued...
+[1482142294.31][HTST][ERR] orphan event in main phase: {{max_heap_usage;0}}, timestamp=1482142294.303000
+[1482142294.31][CONN][INF] found KV pair in stream: {{end;success}}, queued...
+[1482142294.32][HTST][INF] __notify_complete(True)
+[1482142294.34][CONN][INF] found KV pair in stream: {{__exit;0}}, queued...
+[1482142294.34][HTST][INF] __exit(0)
+[1482142294.34][HTST][INF] __exit_event_queue received
+[1482142294.34][HTST][INF] test suite run finished after 2.06 sec...
+[1482142294.35][CONN][INF] received special even '__host_test_finished' value='True', finishing
+[1482142294.37][HTST][INF] CONN exited with code: 0
+[1482142294.37][HTST][INF] No events in queue
+[1482142294.37][HTST][INF] stopped consuming events
+[1482142294.38][HTST][INF] host test result() call skipped, received: True
+[1482142294.38][HTST][INF] calling blocking teardown()
+[1482142294.38][HTST][INF] teardown() finished
+[1482142294.38][HTST][INF] {{result;success}}
+mbedgt: checking for GCOV data...
+mbedgt: mbed-host-test-runner: stopped and returned 'OK'
+mbedgt: test on hardware with target id: 0240000029304e450023500878a3001df131000097969900
+mbedgt: test suite 'mbed-os-features-storage-feature_storage-tests-fs-fat-basic' ..................... OK in 15.86 sec
+	test case: 'FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test.' ......................... OK in 0.90 sec
+	test case: 'FSFAT_test_01: fopen()/fseek()/fclose() test.' ................................... OK in 0.32 sec
+mbedgt: test case summary: 2 passes, 0 failures
+mbedgt: all tests finished!
+mbedgt: shuffle seed: 0.7720862854
+mbedgt: test suite report:
++--------------+---------------+-------------------------------------------------------------+--------+--------------------+-------------+
+| target       | platform_name | test suite                                                  | result | elapsed_time (sec) | copy_method |
++--------------+---------------+-------------------------------------------------------------+--------+--------------------+-------------+
+| K64F-GCC_ARM | K64F          | mbed-os-features-storage-feature_storage-tests-fs-fat-basic | OK     | 15.86              | shell       |
++--------------+---------------+-------------------------------------------------------------+--------+--------------------+-------------+
+mbedgt: test suite results: 1 OK
+mbedgt: test case report:
++--------------+---------------+-------------------------------------------------------------+---------------------------------------------------------+--------+--------+--------+--------------------+
+| target       | platform_name | test suite                                                  | test case                                               | passed | failed | result | elapsed_time (sec) |
++--------------+---------------+-------------------------------------------------------------+---------------------------------------------------------+--------+--------+--------+--------------------+
+| K64F-GCC_ARM | K64F          | mbed-os-features-storage-feature_storage-tests-fs-fat-basic | FSFAT_test_00: fopen()/fgetc()/fprintf()/fclose() test. | 1      | 0      | OK     | 0.9                |
+| K64F-GCC_ARM | K64F          | mbed-os-features-storage-feature_storage-tests-fs-fat-basic | FSFAT_test_01: fopen()/fseek()/fclose() test.           | 1      | 0      | OK     | 0.32               |
++--------------+---------------+-------------------------------------------------------------+---------------------------------------------------------+--------+--------+--------+--------------------+
+mbedgt: test case results: 2 OK
+mbedgt: completed in 16.53 sec
