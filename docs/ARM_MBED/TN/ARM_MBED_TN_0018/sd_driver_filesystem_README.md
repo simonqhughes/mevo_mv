@@ -412,7 +412,7 @@ The following versions of mbed-os and sd-driver are known to work together:
 
 mbedOS supports a subset of the POSIX File API, as outlined below:
 
-- [clearerr()][MAN_CLEARERR].
+- [clearerr()](https://linux.die.net/man/3/clearerr).
     - STATUS: Basic testing implemented. Working.
 - [fclose()][MAN_FCLOSE].
     - STATUS: Basic testing implemented. Working.
