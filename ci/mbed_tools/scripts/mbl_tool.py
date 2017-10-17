@@ -71,6 +71,7 @@ import cmd
 import logging
 import xml.etree.ElementTree as ET
 import fnmatch
+import tempfile
 
 
 # error codes are positive numbers because sys.exit() returns a +ve number to the env
@@ -79,11 +80,16 @@ MBL_FAILURE = 1
 MBL_ERROR_MAX = 2
 
 ##############################################################################
-#
-# JOBS_DIR
-#   directory contain test-manifest*.xml specifying jobs
+# do_build.sh bash script
+# ARGUMENTS
+#  none    
 ##############################################################################
-BUILD_SCRIPT="do_build.sh"
+do_build_sh = '''\
+#!/bin/bash
+
+MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
+bitbake mbl-console-image > log.txt 2>&1
+'''
 
 ##############################################################################
 # mbl_tool
@@ -92,6 +98,20 @@ BUILD_SCRIPT="do_build.sh"
 ##############################################################################
 class mbl_tool:
     
+    def __init__(self):
+
+        # attribute indicating whether the script is running on jenkins or not 
+        self.jenkins = False 
+        self.ws_path = ""  
+
+        # check if running on jenkins
+        if os.environ.get('JENKINS_URL') != None and os.environ.get('JENKINS_HOME') != None:
+            self.ws_path = os.environ['WORKSPACE'] + "/"  
+            self.jenkins = True
+        else:
+            # set a default for use all the time
+            self.ws_path = os.environ['PWD'] + "/"
+
     def do_bash(self, cmd):
         ret = subprocess.call(cmd, shell=True)
         return ret
@@ -126,13 +146,18 @@ class mbl_tool:
         default_build = False
         
         if test_filename_xml == "":
-            test_filename_xml = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
+            # test_filename_xml = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
+            test_filename_xml = "default_20171017_145602"
             default_build = True
             
         # ws_dir is the top level directly of the workspace set to the test job manifest
         # xml name withtout extension
         ws_dir = os.path.splitext(test_filename_xml)[0]
         print ws_dir 
+        
+        if self.jenkins:
+            # in the case we're running on jenkins, prepend the path to the workspace
+            ws_dir = self.ws_path + ws_dir
          
         # create new dir for workspace with sdh_dev_mx as root
         ret = self.do_bash("mkdir " + ws_dir)
@@ -146,7 +171,7 @@ class mbl_tool:
         
         if not default_build:
             # cp new manifest.xml with revisions for testing
-            cmd = "cp " + jobs_dir + "/" + test_filename_xml + " " + ws_dir + "/.repo/manifests"
+            cmd = "cp " + self.ws_path + "/" + jobs_dir + "/" + test_filename_xml + " " + ws_dir + "/.repo/manifests"
             ret = self.do_bash(cmd)
             if ret != 0:
                 logging.debug("Error: failed to copy test manifest xml to repo manifest directory.")
@@ -174,15 +199,19 @@ class mbl_tool:
             logging.debug("Error: failed to repo sync.")
             return ret
 
-        # source the environment && bitbake
-        cmd = "cd " + ws_dir + " && ln -s /data/2284/shared_downloads downloads"
-        ret = self.do_bash(cmd)
-        if ret != 0:
-            logging.debug("Error: failed to link to shared_downloads.")
-            return ret
+        # link to shared downloads
+        if not self.jenkins:
+            cmd = "cd " + ws_dir + " && ln -s /data/2284/shared_downloads downloads"
+            ret = self.do_bash(cmd)
+            if ret != 0:
+                logging.debug("Error: failed to link to shared_downloads.")
+                return ret
         
         # cp the do_build.sh to the top level dir
-        cmd = "cp " + BUILD_SCRIPT + " " + ws_dir + "/"
+        scriptfile = tempfile.NamedTemporaryFile()
+        scriptfile.write(do_build_sh)
+        scriptfile.flush()
+        cmd = "cp " + scriptfile.name + " " + ws_dir + "/"
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to copy build script.")
@@ -190,7 +219,9 @@ class mbl_tool:
 
     
         # run build. this will fail the first time because bblayers.conf has the wrong layers in it
-        cmd = "cd " + ws_dir  + " && ./do_build.sh"
+        cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
+        print cmd
+        print "cmd=%s" % cmd
         ret = self.do_bash(cmd)
         
         # Remove the bad bblayers.conf received from the mbl-manifest repo.
@@ -209,8 +240,7 @@ class mbl_tool:
             return ret
     
         # run build 2nd time, which should succeed with correct bblayers.conf
-        cmd = "cd " + ws_dir  + " && ./do_build.sh"
-        print cmd
+        cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
         ret = app.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to perform build.")
