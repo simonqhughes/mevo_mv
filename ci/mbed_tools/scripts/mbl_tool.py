@@ -298,15 +298,18 @@ class mbl_test_campaign:
             commitId.reverse()
            
             # extract the project line of interest from the xml tree
-            project_meta_oe = root_mbl.findall(".//*[@name='openembedded/meta-openembedded']")
+            #project_meta_oe = root_mbl.findall(".//*[@name='openembedded/meta-openembedded']")
+            search_exp = ".//*[@name='" + project_name + "']"
+            project_meta_oe = root_mbl.findall(search_exp)
             
             # can do approx 15 builds per night. step through hashes so there is about 
             # 15 tests
-            step_size = int(len(commitId)/15)
+            #step_size = int(len(commitId)/15)
+            step_size = 1
             test_id = 1
             
             # loop through array selecting commits to test
-            for i in range(0, len(commitId), step_size):
+            for i in range(1, len(commitId), step_size):
                 
                 project_meta_oe[0].set('revision', commitId[i])
     
