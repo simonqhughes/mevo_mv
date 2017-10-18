@@ -14,9 +14,9 @@
   <project name="96boards/meta-rpb" path="layers/meta-rpb" remote="github" />
   <project name="Freescale/meta-freescale-3rdparty" path="layers/meta-freescale-3rdparty" remote="github" />
   <project name="OSSystems/meta-browser" path="layers/meta-browser" remote="github" />
-  <project name="armmbed/meta-mbl" path="layers/meta-mbl" remote="github" />
+  <project name="armmbed/meta-mbl" path="layers/meta-mbl" remote="github" revision="sdh_iotmbl7_uboot"/>
   <project name="git/meta-freescale" path="layers/meta-freescale" remote="yocto" />
-  <project name="git/meta-raspberrypi" path="layers/meta-raspberrypi" remote="yocto" revision="134e7dd94334d3ac26bf0e51318f642154dd42da" upstream="master" />
+  <project name="git/meta-raspberrypi" path="layers/meta-raspberrypi" remote="yocto" revision="fe99478aa9ebfbcf78d02bad35fd1310912e4857" upstream="master" />
   <project name="git/meta-ti" path="layers/meta-ti" remote="yocto">
     <linkfile dest="setup-environment" src="../../.repo/manifests/setup-environment" />
   </project>
