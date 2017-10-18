@@ -208,8 +208,7 @@ class mbl_tool:
         default_build = False
         
         if test_filename_xml == "":
-            # test_filename_xml = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
-            test_filename_xml = "default_20171017_145602"
+            test_filename_xml = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
             default_build = True
             
         # ws_dir is the top level directly of the workspace set to the test job manifest
