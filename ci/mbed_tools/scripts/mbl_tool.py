@@ -270,7 +270,7 @@ class mbl_tool:
                 return ret
         
         # cp the do_build.sh to the top level dir
-        file = tempfile.NamedTemporaryFile()
+        scriptfile = tempfile.NamedTemporaryFile()
         scriptfile.write(do_build_sh)
         scriptfile.flush()
         cmd = "cp " + scriptfile.name + " " + ws_dir + "/"
