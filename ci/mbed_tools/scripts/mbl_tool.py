@@ -270,7 +270,7 @@ class mbl_tool:
                 return ret
         
         # cp the do_build.sh to the top level dir
-        scriptfile = tempfile.NamedTemporaryFile()
+        file = tempfile.NamedTemporaryFile()
         scriptfile.write(do_build_sh)
         scriptfile.flush()
         cmd = "cp " + scriptfile.name + " " + ws_dir + "/"
@@ -293,10 +293,10 @@ class mbl_tool:
             return ret
 
         # Copy the correct bblayers.conf to conf dir.
-        scriptfile = tempfile.NamedTemporaryFile()
-        scriptfile.write(bb_layers_conf)
-        scriptfile.flush()
-        cmd = "cp " + scriptfile.name + " " + ws_dir + "/build-mbl/conf/bblayers.conf"
+        bblayers_conf_file = tempfile.NamedTemporaryFile()
+        bblayers_conf_file.write(bb_layers_conf)
+        bblayers_conf_file.flush()
+        cmd = "cp " + bblayers_conf_file.name + " " + ws_dir + "/build-mbl/conf/bblayers.conf"
         ret = app.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to copy new bblayers.conf into place.")
