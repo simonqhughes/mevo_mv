@@ -124,6 +124,7 @@ BBFILES = ""
 BASELAYERS ?= " \
   ${OEROOT}/layers/meta-openembedded/meta-networking \
   ${OEROOT}/layers/meta-openembedded/meta-filesystems \
+  ${OEROOT}/layers/meta-openembedded/meta-oe \
   ${OEROOT}/layers/meta-openembedded/meta-python \
   ${OEROOT}/layers/meta-virtualization \
 "
