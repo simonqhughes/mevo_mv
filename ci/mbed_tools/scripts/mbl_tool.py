@@ -109,7 +109,7 @@ MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
 bitbake mbl-console-image > log.txt 2>&1
 '''
 
-
+# bblayers.conf so that a minimal number of layers can be specified for the project
 bb_layers_conf = '''\
 # LAYER_CONF_VERSION is increased each time build/conf/bblayers.conf
 # changes incompatibly
@@ -151,6 +151,40 @@ BBLAYERS = " \
   ${EXTRALAYERS} \
   ${OEROOT}/layers/openembedded-core/meta \
 "
+'''
+
+
+##############################################################################
+# git_bisect_run_script
+#  script to run for git bisect when just checking whether a particular 
+#  configuration runs or not. If I was git bisecting in for example
+#  meta-virtualisation, then the script would be located in that directory.
+#  Hence the script cd's into the build-dir to perform a build.
+##############################################################################
+git_bisect_run_script = '''
+# !/bin/bash
+
+set -x
+
+# file_stamp and file_name_root
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE=bb_build_log_iotmbl_7_test_14_${TIMESTAMP}.txt
+
+cd ../../build-mbl && bitbake mbl-console-image 2>&1 >> ${LOG_FILE}
+'''
+
+##############################################################################
+# repo_forall_script
+#  script for creating report
+##############################################################################
+repo_forall_script = '''
+#!/bin/bash
+echo $REPO_PROJECT
+#git log --pretty="%H %s %ad %aD %ar %at %ai %aI %cd %cD %cr %ct %ci %cI " HEAD^..master | grep go.bbclass
+#git log --pretty="%H %aD %ar %s" HEAD^..master | grep go.bbclass
+#git log --pretty="%H %aD %ar %s" HEAD^..master | grep u-boot
+git log --pretty="%H %aD %ar %s" HEAD^..master | grep $1
+echo ----------------------------------------
 '''
 
 class mbl_tool:
