@@ -76,6 +76,15 @@ where:
   produce a series of builds between commit_A and commit_B.
 - openembedded\/meta-openembedded identifies the project name line
   in the manifest.xml that you want to set the revision for.  
+
+TODO
+
+- switch to turn on/off whether mevo bblayers.conf file is written in to workspace
+- log what has been downloaded into downloads dir.
+- repo forall differences that have gone into new projects.
+- switch to specify default.xml {project, branch} tuple e.g. --meta-mbl-branch, --openembedded-core-branch, 
+  --meta-virtualization-branch (leaving all other branches at the default.xml setting)
+
 """
 
 import subprocess
@@ -319,22 +328,24 @@ class mbl_tool:
         print "cmd=%s" % cmd
         ret = self.do_bash(cmd)
         
-        # Remove the bad bblayers.conf received from the mbl-manifest repo.
-        cmd = "rm " + ws_dir + "/build-mbl/conf/bblayers.conf"
-        ret = app.do_bash(cmd)
-        if ret != 0:
-            logging.debug("Error: failed to remove bad bblayers.conf")
-            return ret
+        # only overwrite the bblayers.conf if explicitly requested to do so
+        if args.copy_bblayers_conf:
+            # Remove the bad bblayers.conf received from the mbl-manifest repo.
+            cmd = "rm " + ws_dir + "/build-mbl/conf/bblayers.conf"
+            ret = app.do_bash(cmd)
+            if ret != 0:
+                logging.debug("Error: failed to remove bad bblayers.conf")
+                return ret
 
-        # Copy the correct bblayers.conf to conf dir.
-        bblayers_conf_file = tempfile.NamedTemporaryFile()
-        bblayers_conf_file.write(bb_layers_conf)
-        bblayers_conf_file.flush()
-        cmd = "cp " + bblayers_conf_file.name + " " + ws_dir + "/build-mbl/conf/bblayers.conf"
-        ret = app.do_bash(cmd)
-        if ret != 0:
-            logging.debug("Error: failed to copy new bblayers.conf into place.")
-            return ret
+            # Copy the correct bblayers.conf to conf dir.
+            bblayers_conf_file = tempfile.NamedTemporaryFile()
+            bblayers_conf_file.write(bb_layers_conf)
+            bblayers_conf_file.flush()
+            cmd = "cp " + bblayers_conf_file.name + " " + ws_dir + "/build-mbl/conf/bblayers.conf"
+            ret = app.do_bash(cmd)
+            if ret != 0:
+                logging.debug("Error: failed to copy new bblayers.conf into place.")
+                return ret
     
         # run build 2nd time, which should succeed with correct bblayers.conf
         cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
@@ -474,6 +485,7 @@ if __name__ == "__main__":
     parser.add_argument('--tcg-revfile', default='', help='test campaign generator: text file containing list of commits to populate in revision field.')
     parser.add_argument('--tcg-project-name', default='', help='test campaign generator: project name for which to set revision field.')
     parser.add_argument('--mbl-manifest-branch', default='master', help='mbl-manifest branch from which to take project.')
+    parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
 
     args = parser.parse_args()
