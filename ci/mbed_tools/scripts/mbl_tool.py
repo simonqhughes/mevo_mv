@@ -562,14 +562,18 @@ if __name__ == "__main__":
     parser.add_argument('--tcg-revfile', default='', help='test campaign generator: text file containing list of commits to populate in revision field.')
     parser.add_argument('--tcg-project-name', default='', help='test campaign generator: project name for which to set revision field.')
     parser.add_argument('--mbl-manifest-branch', default='master', help='mbl-manifest branch from which to take project.')
-    parser.add_argument('--mbl-config-branch', default='master', help='mbl-config branch from which to take project.')
-    parser.add_argument('--meta-mbl-branch', default='master', help='meta-mbl branch from which to take project.')
-    parser.add_argument('--meta-virt-branch', default='master', help='meta-virtualization branch from which to take project.')
-    parser.add_argument('--oe-core-branch', default='master', help='openembedded-core branch from which to take project.')
+    parser.add_argument('--mbl-config-branch', default='', help='mbl-config branch from which to take project.')
+    parser.add_argument('--meta-mbl-branch', default='', help='meta-mbl branch from which to take project.')
+    parser.add_argument('--meta-virt-branch', default='', help='meta-virtualization branch from which to take project.')
+    parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
 
     args = parser.parse_args()
+    
+    print "mbl_tool.py invokes with the following options:"
+    for attr, value in args.__dict__.iteritems():
+        print "%-25s:\t%s" % (attr, value)
 
     if args.do_mbl_console_image:
         # Rebuild a previously created workspace, that may have only partially built, for example
@@ -611,6 +615,8 @@ if __name__ == "__main__":
             # take default.xml and specifiy project branches to test
             tc = mbl_test_campaign()
             ret = tc.create_branch_test(args.manifest, args.mbl_config_branch, args.meta_mbl_branch, args.meta_virt_branch, args.oe_core_branch)
+            
+
             
             
     else:
