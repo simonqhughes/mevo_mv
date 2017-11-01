@@ -40,7 +40,13 @@ Do a build of mbl-manifest sdh_iotmbl7_simplify branch for testing a PR:
 
 Do a build of mbl-manifest but use a local test.xml file rather than the repo default.xml
 
-    mbl_too.py --manifest=test.xml
+    mbl_tool.py --manifest=test.xml
+
+Do a build of mbl-manifest but using the .repo/manifests/default.xml but
+re-write default.xml with revision=<branch-name> for specific projects:
+
+    mbl_tool.py --mbl-config-branch=foo --meta-mbl-branch=bar \ 
+        --meta-virt-branch=foofoo --oe-core-branch=barbar
 
 Run a test campaign of all the test.xml files in a jobs directory:
 
@@ -54,7 +60,7 @@ Generate a test campaign (set of test.xml files):
 
    mbl_tool.py --manifest=20171006_1030.xml --revfile=commits.txt \
        --project-name=openembedded\/meta-openembedded
-
+       
 The command: 
 - takes a manifest.xml file as a template for the test campaign tests
 - a project-name that identifies the line in the template manifest.xml
@@ -82,9 +88,6 @@ TODO
 - switch to turn on/off whether mevo bblayers.conf file is written in to workspace
 - log what has been downloaded into downloads dir.
 - repo forall differences that have gone into new projects.
-- switch to specify default.xml {project, branch} tuple e.g. --meta-mbl-branch, --openembedded-core-branch, 
-  --meta-virtualization-branch (leaving all other branches at the default.xml setting)
-
 """
 
 import subprocess
@@ -209,6 +212,10 @@ class mbl_tool:
         # attribute indicating whether the script is running on jenkins or not 
         self.jenkins = False 
         self.ws_path = ""  
+        self.mbl_config_branch = "" 
+        self.meta_mbl_branch = ""
+        self.meta_virt_branch = ""
+        self.oe_core_branch = ""
 
         # check if running on jenkins
         if os.environ.get('JENKINS_URL') != None and os.environ.get('JENKINS_HOME') != None:
@@ -252,12 +259,17 @@ class mbl_tool:
         default_build = False
         
         if test_filename_xml == "":
-            test_filename_xml = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
-            default_build = True
+            # generate a default name for the workspace directory
+            ws_dir = "default_" + '{:%Y%m%d_%H%M%S}'.format(datetime.datetime.now())
             
-        # ws_dir is the top level directly of the workspace set to the test job manifest
-        # xml name withtout extension
-        ws_dir = os.path.splitext(test_filename_xml)[0]
+            # set a flag for later
+            default_build = True
+        else:
+            # ws_dir is the top level directly of the workspace set to the test job manifest
+            # xml name withtout extension
+            ws_dir = os.path.splitext(test_filename_xml)[0]
+
+        # echo out the workspace dir
         print ws_dir 
         
         if self.jenkins:
@@ -268,7 +280,7 @@ class mbl_tool:
         ret = self.do_bash("mkdir " + ws_dir)
         
         # cd into ws and  repo init using ssh
-        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + args.mbl_manifest_branch + " -m default.xml"
+        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + mbl_manifest_branch + " -m default.xml"
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to preform repo init from mbl-manifest.git.")
@@ -282,6 +294,25 @@ class mbl_tool:
                 logging.debug("Error: failed to copy test manifest xml to repo manifest directory.")
                 return ret
         
+            # repo init with new manifest
+            cmd = "cd " + ws_dir + " && repo init -m " + test_filename_xml
+            ret = self.do_bash(cmd)
+            if ret != 0:
+                logging.debug("Error: failed to repo init with local manifest.")
+                return ret
+    
+        if default_build and jobs_dir == "":
+            # the jobs dir hasnt been specified, so assume that we have to take the default.xml in ws_dir/.repo/manifests
+            # and therefore jobs_dir =  ws_dir/.repo/manifests
+            jobs_dir = ws_dir + "/.repo/manifests"
+            test_filename_xml = jobs_dir + '/' + 'default.xml' 
+            tc = mbl_test_campaign()
+            ret = tc.create_branch_test(test_filename_xml, self.mbl_config_branch, self.meta_mbl_branch, self.meta_virt_branch, self.oe_core_branch)
+            if ret != 0:
+                logging.debug("Error: failed to create default.xml with the revision=branch settings.")
+                return ret
+            test_filename_xml = 'default_test_branches.xml'
+            
             # repo init with new manifest
             cmd = "cd " + ws_dir + " && repo init -m " + test_filename_xml
             ret = self.do_bash(cmd)
@@ -463,8 +494,54 @@ class mbl_test_campaign:
                     test_id += 1
             
             ret = MBL_SUCCESS
-    
+        
+        return ret
 
+    # generates a set of test.xml test files forming a test campaign
+    def create_branch_test(self, manifest, mbl_config_branch, meta_mbl_branch, meta_virt_branch, oe_core_branch):
+
+        ret = MBL_FAILURE
+
+        if manifest != "":
+
+            tree_mbl = ET.parse(manifest)
+            root_mbl = tree_mbl.getroot()
+
+            if mbl_config_branch != "":
+                # extract the project line of interest from the xml tree
+                project_mbl_config = root_mbl.findall(".//*[@name='armmbed/mbl-config']")
+                # set the new revisions
+                project_mbl_config[0].set('revision', mbl_config_branch)
+                
+            if meta_mbl_branch != "":
+                # extract the project line of interest from the xml tree
+                project_meta_mbl = root_mbl.findall(".//*[@name='armmbed/meta-mbl']")
+                # set the new revisions
+                project_meta_mbl[0].set('revision', meta_mbl_branch)
+                
+            if meta_virt_branch != "":
+                # extract the project line of interest from the xml tree
+                project_meta_virt = root_mbl.findall(".//*[@name='git/meta-virtualization']")
+                # set the new revisions
+                project_meta_virt[0].set('revision', meta_virt_branch)
+                
+            if oe_core_branch != "":
+                # extract the project line of interest from the xml tree
+                project_oe_core = root_mbl.findall(".//*[@name='openembedded/openembedded-core']")
+                # set the new revisions
+                project_oe_core[0].set('revision', oe_core_branch)
+                
+            
+            # save to new file with the basename of the manifest filename and "_test_nn.xml" appended
+            output_fname = os.path.basename(manifest)
+            output_fname = os.path.splitext(output_fname)[0]
+            output_fname += ('_test_branches.xml')
+            output_fname = os.path.dirname(manifest) + '/' + output_fname 
+            print "Writing test manifest file: %s" % (output_fname)
+            tree_mbl.write(output_fname, encoding="UTF-8", xml_declaration=None, default_namespace=None, method="xml")
+            ret = MBL_SUCCESS
+
+        return ret
 
 
 if __name__ == "__main__":
@@ -485,6 +562,10 @@ if __name__ == "__main__":
     parser.add_argument('--tcg-revfile', default='', help='test campaign generator: text file containing list of commits to populate in revision field.')
     parser.add_argument('--tcg-project-name', default='', help='test campaign generator: project name for which to set revision field.')
     parser.add_argument('--mbl-manifest-branch', default='master', help='mbl-manifest branch from which to take project.')
+    parser.add_argument('--mbl-config-branch', default='master', help='mbl-config branch from which to take project.')
+    parser.add_argument('--meta-mbl-branch', default='master', help='meta-mbl branch from which to take project.')
+    parser.add_argument('--meta-virt-branch', default='master', help='meta-virtualization branch from which to take project.')
+    parser.add_argument('--oe-core-branch', default='master', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
 
@@ -523,11 +604,20 @@ if __name__ == "__main__":
             ret = tc.create(args.manifest, args.tcg_revfile, args.tcg_project_name) 
             
     elif args.do_test:
+            # create a test campaign
+            #tc = mbl_test_campaign()
+            #ret = tc.create2(args.manifest, args.tcg_revfile, args.tcg_project_name)
+            
+            # take default.xml and specifiy project branches to test
             tc = mbl_test_campaign()
-            ret = tc.create2(args.manifest, args.tcg_revfile, args.tcg_project_name) 
+            ret = tc.create_branch_test(args.manifest, args.mbl_config_branch, args.meta_mbl_branch, args.meta_virt_branch, args.oe_core_branch)
             
             
     else:
+        app.mbl_config_branch = args.mbl_config_branch
+        app.meta_mbl_branch = args.meta_mbl_branch
+        app.meta_virt_branch = args.meta_virt_branch
+        app.oe_core_branch = args.oe_core_branch
         ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch)
 
     if do_print_usage:
