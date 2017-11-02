@@ -24,9 +24,14 @@ DEPENDENCIES
 
 EXAMPLE USAGE
 
-Do a build of mbl-manifest master branch
+Do a build of mbl-manifest master branch using the default.xml. This
+- creates a workspace folder called default_<datestamp>
+- repo inits in default_<datestamp>
+- repo sync in default_<datestamp>
+- sources the environment setup script and sets MACHINE=raspberrypi3, DISTRO=mbl
+- bitbake mbl-console-image
 
-    mbl_too.py
+    mbl_tool.py
 
 Do a build of mbl-manifest pyro branch
 
@@ -88,6 +93,10 @@ TODO
 - switch to turn on/off whether mevo bblayers.conf file is written in to workspace
 - log what has been downloaded into downloads dir.
 - repo forall differences that have gone into new projects.
+- have a --download-dir to specifiy a dir containing the downloads.
+- have a --no-build switch for commands that would normally do a build
+  after putting down the workspace, so the command just puts down the 
+  workspace.
 """
 
 import subprocess
@@ -117,8 +126,27 @@ do_build.sh bash script
 do_build_sh = '''\
 #!/bin/bash
 
+# file_stamp and file_name_root
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+
 MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
-bitbake mbl-console-image > log.txt 2>&1
+bitbake mbl-console-image >> ${LOG_FILE} 2>&1
+'''
+
+"""
+do_build_test.sh bash script
+  A script used to automate the bitbake build for mbl-console-image-test 
+"""
+do_build_mbl_console_image_test_sh = '''\
+#!/bin/bash
+
+# file_stamp and file_name_root
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE=bb_build_log_mbl_console_image_test_${TIMESTAMP}.txt
+
+MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
+bitbake mbl-console-image-test >> ${LOG_FILE} 2>&1
 '''
 
 # bblayers.conf so that a minimal number of layers can be specified for the project
@@ -210,6 +238,7 @@ class mbl_tool:
         """
 
         # attribute indicating whether the script is running on jenkins or not 
+        self.build_mbl_console_image_test = False
         self.jenkins = False 
         self.ws_path = ""  
         self.mbl_config_branch = "" 
@@ -257,6 +286,7 @@ class mbl_tool:
 
         ret = MBL_FAILURE
         default_build = False
+        build_script = do_build_sh
         
         if test_filename_xml == "":
             # generate a default name for the workspace directory
@@ -344,8 +374,13 @@ class mbl_tool:
                 return ret
         
         # cp the do_build.sh to the top level dir
+        if self.build_mbl_console_image_test:
+            # the user wants to build the mbl-console-image-test target rather than 
+            # mbl-console-image 
+            build_script = do_build_mbl_console_image_test_sh
+        
         scriptfile = tempfile.NamedTemporaryFile()
-        scriptfile.write(do_build_sh)
+        scriptfile.write(build_script)
         scriptfile.flush()
         cmd = "cp " + scriptfile.name + " " + ws_dir + "/"
         ret = self.do_bash(cmd)
@@ -555,6 +590,7 @@ if __name__ == "__main__":
 
     # command line argment setup and parsing
     parser = argparse.ArgumentParser()
+    parser.add_argument('--build-mbl-console-image-test', action='store_true', help='perform the mbl-console-image-test build')
     parser.add_argument('--do-mbl-console-image', action='store_true', help='perform the mbl-console-image build (--manifest required)')
     parser.add_argument('--do-test', action='store_true', help='perform test code')
     parser.add_argument('--manifest', default='', help='specify manifest.xml file for test or template for test campaign generation')
@@ -615,15 +651,14 @@ if __name__ == "__main__":
             # take default.xml and specifiy project branches to test
             tc = mbl_test_campaign()
             ret = tc.create_branch_test(args.manifest, args.mbl_config_branch, args.meta_mbl_branch, args.meta_virt_branch, args.oe_core_branch)
-            
-
-            
+           
             
     else:
         app.mbl_config_branch = args.mbl_config_branch
         app.meta_mbl_branch = args.meta_mbl_branch
         app.meta_virt_branch = args.meta_virt_branch
         app.oe_core_branch = args.oe_core_branch
+        app.build_mbl_console_image_test = args.build_mbl_console_image_test
         ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch)
 
     if do_print_usage:
