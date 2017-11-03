@@ -245,6 +245,7 @@ class mbl_tool:
         self.meta_mbl_branch = ""
         self.meta_virt_branch = ""
         self.oe_core_branch = ""
+        self.use_default_private_xml = False
 
         # check if running on jenkins
         if os.environ.get('JENKINS_URL') != None and os.environ.get('JENKINS_HOME') != None:
@@ -286,6 +287,7 @@ class mbl_tool:
 
         ret = MBL_FAILURE
         default_build = False
+        default_xml_filename = "default.xml"
         build_script = do_build_sh
         
         if test_filename_xml == "":
@@ -302,6 +304,10 @@ class mbl_tool:
         # echo out the workspace dir
         print ws_dir 
         
+        # if the use-default-private-xml flag is set thenselect the default_private.xml file
+        if self.use_default_private_xml:
+            default_xml_filename = "default_private.xml"
+        
         if self.jenkins:
             # in the case we're running on jenkins, prepend the path to the workspace
             ws_dir = self.ws_path + ws_dir
@@ -310,7 +316,8 @@ class mbl_tool:
         ret = self.do_bash("mkdir " + ws_dir)
         
         # cd into ws and  repo init using ssh
-        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + mbl_manifest_branch + " -m default.xml"
+        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + mbl_manifest_branch + " -m " + default_xml_filename
+        print "cmd=%s" % cmd
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to preform repo init from mbl-manifest.git.")
@@ -332,16 +339,17 @@ class mbl_tool:
                 return ret
     
         if default_build and jobs_dir == "":
-            # the jobs dir hasnt been specified, so assume that we have to take the default.xml in ws_dir/.repo/manifests
-            # and therefore jobs_dir =  ws_dir/.repo/manifests
+            # the jobs dir hasnt been specified, so assume that we have to take the default.xml (with project = mbl-config etc lines in it, not default_private.xml)
+            # in ws_dir/.repo/manifests and therefore jobs_dir =  ws_dir/.repo/manifests
             jobs_dir = ws_dir + "/.repo/manifests"
             test_filename_xml = jobs_dir + '/' + 'default.xml' 
             tc = mbl_test_campaign()
             ret = tc.create_branch_test(test_filename_xml, self.mbl_config_branch, self.meta_mbl_branch, self.meta_virt_branch, self.oe_core_branch)
             if ret != 0:
-                logging.debug("Error: failed to create default.xml with the revision=branch settings.")
+                logging.debug("Error: failed to create default(_private).xml with the revision=branch settings.")
                 return ret
-            test_filename_xml = 'default_test_branches.xml'
+            # test_filename_xml = 'default_test_branches.xml'
+            test_filename_xml = default_xml_filename
             
             # repo init with new manifest
             cmd = "cd " + ws_dir + " && repo init -m " + test_filename_xml
@@ -532,11 +540,14 @@ class mbl_test_campaign:
         
         return ret
 
-    # generates a set of test.xml test files forming a test campaign
+    # generates a new default.xml with revisions set to branches as specified by the args.
+    # this function overwrites the default.xml because otherwise the default_private.xml
+    # would not pick up the changes.
     def create_branch_test(self, manifest, mbl_config_branch, meta_mbl_branch, meta_virt_branch, oe_core_branch):
 
         ret = MBL_FAILURE
 
+        print "manifest=%s" % manifest
         if manifest != "":
 
             tree_mbl = ET.parse(manifest)
@@ -546,6 +557,9 @@ class mbl_test_campaign:
                 # extract the project line of interest from the xml tree
                 project_mbl_config = root_mbl.findall(".//*[@name='armmbed/mbl-config']")
                 # set the new revisions
+                print "project_mbl_config=%s" % project_mbl_config
+                print "project_mbl_config[0]=%s" % project_mbl_config[0]
+                
                 project_mbl_config[0].set('revision', mbl_config_branch)
                 
             if meta_mbl_branch != "":
@@ -570,7 +584,10 @@ class mbl_test_campaign:
             # save to new file with the basename of the manifest filename and "_test_nn.xml" appended
             output_fname = os.path.basename(manifest)
             output_fname = os.path.splitext(output_fname)[0]
-            output_fname += ('_test_branches.xml')
+            # todo: have to overwrite default.xml so default_private.xml can use it
+            # restore these lines if the default_private.xml is not adopted, otherwise remove
+            # output_fname += ('_test_branches.xml')
+            output_fname += ('.xml')
             output_fname = os.path.dirname(manifest) + '/' + output_fname 
             print "Writing test manifest file: %s" % (output_fname)
             tree_mbl.write(output_fname, encoding="UTF-8", xml_declaration=None, default_namespace=None, method="xml")
@@ -603,6 +620,7 @@ if __name__ == "__main__":
     parser.add_argument('--meta-virt-branch', default='', help='meta-virtualization branch from which to take project.')
     parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
+    parser.add_argument('--use-default-private-xml', action='store_true', help='use repo default_private.xml rather than default.xml')
 
 
     args = parser.parse_args()
@@ -659,6 +677,7 @@ if __name__ == "__main__":
         app.meta_virt_branch = args.meta_virt_branch
         app.oe_core_branch = args.oe_core_branch
         app.build_mbl_console_image_test = args.build_mbl_console_image_test
+        app.use_default_private_xml = args.use_default_private_xml
         ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch)
 
     if do_print_usage:
