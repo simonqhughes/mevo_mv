@@ -243,6 +243,7 @@ class mbl_tool:
         self.ws_path = ""  
         self.mbl_config_branch = "" 
         self.meta_mbl_branch = ""
+        self.meta_mbl_private_branch = ""
         self.meta_virt_branch = ""
         self.oe_core_branch = ""
         self.use_default_private_xml = False
@@ -343,8 +344,9 @@ class mbl_tool:
             # in ws_dir/.repo/manifests and therefore jobs_dir =  ws_dir/.repo/manifests
             jobs_dir = ws_dir + "/.repo/manifests"
             test_filename_xml = jobs_dir + '/' + 'default.xml' 
+            test_filename_private_xml   = jobs_dir + '/' + 'default_private.xml'
             tc = mbl_test_campaign()
-            ret = tc.create_branch_test(test_filename_xml, self.mbl_config_branch, self.meta_mbl_branch, self.meta_virt_branch, self.oe_core_branch)
+            ret = tc.create_branch_test(test_filename_xml, self.mbl_config_branch, self.meta_mbl_branch, self.meta_virt_branch, self.oe_core_branch, test_filename_private_xml, self.meta_mbl_private_branch)
             if ret != 0:
                 logging.debug("Error: failed to create default(_private).xml with the revision=branch settings.")
                 return ret
@@ -543,11 +545,10 @@ class mbl_test_campaign:
     # generates a new default.xml with revisions set to branches as specified by the args.
     # this function overwrites the default.xml because otherwise the default_private.xml
     # would not pick up the changes.
-    def create_branch_test(self, manifest, mbl_config_branch, meta_mbl_branch, meta_virt_branch, oe_core_branch):
+    def create_branch_test(self, manifest, mbl_config_branch, meta_mbl_branch, meta_virt_branch, oe_core_branch, manifest_private="", meta_mbl_private_branch=""):
 
         ret = MBL_FAILURE
 
-        print "manifest=%s" % manifest
         if manifest != "":
 
             tree_mbl = ET.parse(manifest)
@@ -557,9 +558,6 @@ class mbl_test_campaign:
                 # extract the project line of interest from the xml tree
                 project_mbl_config = root_mbl.findall(".//*[@name='armmbed/mbl-config']")
                 # set the new revisions
-                print "project_mbl_config=%s" % project_mbl_config
-                print "project_mbl_config[0]=%s" % project_mbl_config[0]
-                
                 project_mbl_config[0].set('revision', mbl_config_branch)
                 
             if meta_mbl_branch != "":
@@ -593,6 +591,22 @@ class mbl_test_campaign:
             tree_mbl.write(output_fname, encoding="UTF-8", xml_declaration=None, default_namespace=None, method="xml")
             ret = MBL_SUCCESS
 
+        if manifest_private != "":
+
+            tree_mbl_private = ET.parse(manifest_private)
+            root_mbl_private = tree_mbl_private.getroot()
+
+            if meta_mbl_private_branch != "":
+                # extract the project line of interest from the xml tree
+                project_meta_mbl_private = root_mbl_private.findall(".//*[@name='armmbed/meta-mbl-private']")
+                # set the new revisions
+                project_meta_mbl_private[0].set('revision', meta_mbl_private_branch)
+                
+            # save to new file with the basename of the manifest filename and "_test_nn.xml" appended
+            print "Writing test manifest file: %s" % (manifest_private)
+            tree_mbl_private.write(manifest_private, encoding="UTF-8", xml_declaration=None, default_namespace=None, method="xml")
+            ret = MBL_SUCCESS
+
         return ret
 
 
@@ -617,6 +631,7 @@ if __name__ == "__main__":
     parser.add_argument('--mbl-manifest-branch', default='master', help='mbl-manifest branch from which to take project.')
     parser.add_argument('--mbl-config-branch', default='', help='mbl-config branch from which to take project.')
     parser.add_argument('--meta-mbl-branch', default='', help='meta-mbl branch from which to take project.')
+    parser.add_argument('--meta-mbl-private-branch', default='', help='meta-mbl-private branch from which to take project.')
     parser.add_argument('--meta-virt-branch', default='', help='meta-virtualization branch from which to take project.')
     parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
@@ -674,6 +689,7 @@ if __name__ == "__main__":
     else:
         app.mbl_config_branch = args.mbl_config_branch
         app.meta_mbl_branch = args.meta_mbl_branch
+        app.meta_mbl_private_branch = args.meta_mbl_private_branch
         app.meta_virt_branch = args.meta_virt_branch
         app.oe_core_branch = args.oe_core_branch
         app.build_mbl_console_image_test = args.build_mbl_console_image_test
