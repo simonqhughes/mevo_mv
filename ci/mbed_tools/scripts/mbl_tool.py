@@ -372,6 +372,13 @@ class mbl_tool:
             if ret != 0:
                 logging.debug("Error: failed to link to shared_downloads.")
                 return ret
+        else:
+            # jenkins: try to link downloads dir
+            cmd = "cd " + ws_dir + " && ln -s " + self.ws_path + "mbl/mbl-console-image/downloads downloads"
+            ret = self.do_bash(cmd)
+            if ret != 0:
+                logging.debug("Error: failed to link to shared_downloads (cmd=%s)." % cmd)
+                return ret
         
         # cp the do_build.sh to the top level dir
         if self.build_mbl_console_image_test:
