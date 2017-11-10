@@ -63,8 +63,8 @@ Redo a bitbake mbl-console-image build for a previously created workspace:
 
 Generate a test campaign (set of test.xml files):
 
-   mbl_tool.py --manifest=20171006_1030.xml --revfile=commits.txt \
-       --project-name=openembedded\/meta-openembedded
+   mbl_tool.py --manifest=20171006_1030.xml --tcg-revfile=commits.txt \
+       --tcg-project-name=openembedded\/meta-openembedded
        
 The command: 
 - takes a manifest.xml file as a template for the test campaign tests
@@ -245,7 +245,8 @@ class mbl_tool:
         self.meta_mbl_branch = ""
         self.meta_virt_branch = ""
         self.oe_core_branch = ""
-
+        self.downloads_dir = ""
+        
         # check if running on jenkins
         if os.environ.get('JENKINS_URL') != None and os.environ.get('JENKINS_HOME') != None:
             self.ws_path = os.environ['WORKSPACE'] + "/"  
@@ -253,7 +254,7 @@ class mbl_tool:
         else:
             # set a default for use all the time
             self.ws_path = os.environ['PWD'] + "/"
-
+        
     def do_bash(self, cmd):
         ret = subprocess.call(cmd, shell=True)
         return ret
@@ -372,9 +373,9 @@ class mbl_tool:
             if ret != 0:
                 logging.debug("Error: failed to link to shared_downloads.")
                 return ret
-        else:
+        elif self.downloads_dir != "":
             # jenkins: try to link downloads dir
-            cmd = "cd " + ws_dir + " && ln -s " + self.ws_path + "mbl/mbl-console-image/downloads downloads"
+            cmd = "cd " + ws_dir + " && ln -s " + self.downloads_dir + " downloads"
             ret = self.do_bash(cmd)
             if ret != 0:
                 logging.debug("Error: failed to link to shared_downloads (cmd=%s)." % cmd)
@@ -600,6 +601,7 @@ if __name__ == "__main__":
     parser.add_argument('--build-mbl-console-image-test', action='store_true', help='perform the mbl-console-image-test build')
     parser.add_argument('--do-mbl-console-image', action='store_true', help='perform the mbl-console-image build (--manifest required)')
     parser.add_argument('--do-test', action='store_true', help='perform test code')
+    parser.add_argument('--downloads-dir', default='', help='specify full path to shared downloads directory')
     parser.add_argument('--manifest', default='', help='specify manifest.xml file for test or template for test campaign generation')
     parser.add_argument('--jobsdir', default='', help='specify dir containing manifest.xml files for test campaign.')
     parser.add_argument('--tcg-revfile', default='', help='test campaign generator: text file containing list of commits to populate in revision field.')
@@ -666,6 +668,7 @@ if __name__ == "__main__":
         app.meta_virt_branch = args.meta_virt_branch
         app.oe_core_branch = args.oe_core_branch
         app.build_mbl_console_image_test = args.build_mbl_console_image_test
+        app.downloads_dir = args.downloads_dir
         ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch)
 
     if do_print_usage:
