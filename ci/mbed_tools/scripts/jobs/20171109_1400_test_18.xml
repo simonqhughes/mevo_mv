@@ -18,5 +18,5 @@
   <project name="openembedded/bitbake" path="bitbake" remote="github" revision="cc420f430b1dafd9ca944bea259a564aaab34595" upstream="master" />
   <project name="openembedded/meta-linaro" path="layers/meta-linaro" remote="linaro" revision="740dd01bf55ea1db88363db6b6a38cab455a385b" upstream="master" />
   <project name="openembedded/meta-openembedded" path="layers/meta-openembedded" remote="github" revision="5d6d21e98ed594809169d2b2f6964e90a3369a96" upstream="master" />
-  <project name="openembedded/openembedded-core" path="layers/openembedded-core" remote="github" revision="88770be201678bf1906e27d72e840de2cd4c43f0" upstream="master" />
+  <project name="openembedded/openembedded-core" path="layers/openembedded-core" remote="github" revision="118f42fa92c29269395c53c931fa174ece1af2e0" upstream="master" />
 </manifest>
