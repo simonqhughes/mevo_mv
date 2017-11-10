@@ -367,7 +367,7 @@ class mbl_tool:
             return ret
 
         # link to shared downloads
-        if not self.jenkins:
+        if not self.jenkins and self.downloads_dir == "":
             cmd = "cd " + ws_dir + " && ln -s /data/2284/shared_downloads downloads"
             ret = self.do_bash(cmd)
             if ret != 0:
