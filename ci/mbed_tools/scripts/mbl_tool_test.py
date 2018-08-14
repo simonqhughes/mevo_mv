@@ -130,7 +130,7 @@ do_build_sh = '''\
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
 
-MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
+MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
 bitbake mbl-console-image >> ${LOG_FILE} 2>&1
 '''
 
@@ -145,7 +145,7 @@ do_build_mbl_console_image_test_sh = '''\
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE=bb_build_log_mbl_console_image_test_${TIMESTAMP}.txt
 
-MACHINE=raspberrypi3 DISTRO=mbl . setup-environment
+MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
 bitbake mbl-console-image-test >> ${LOG_FILE} 2>&1
 '''
 
