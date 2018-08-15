@@ -388,7 +388,7 @@ class mbl_tool:
             build_script = do_build_mbl_console_image_test_sh
         
         scriptfile = tempfile.NamedTemporaryFile()
-        scriptfile.write(build_script)
+        scriptfile.write(str.encode(build_script))
         scriptfile.flush()
         cmd = "cp " + scriptfile.name + " " + ws_dir + "/"
         ret = self.do_bash(cmd)
@@ -617,8 +617,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print("mbl_tool.py invokes with the following options:")
-    for attr, value in args.__dict__.iteritems():
-        print("%-25s:\t%s" % (attr, value))
+    #for attr, value in args.__dict__.iteritems():
+    #    print("%-25s:\t%s" % (attr, value))
 
     if args.do_mbl_console_image:
         # Rebuild a previously created workspace, that may have only partially built, for example
