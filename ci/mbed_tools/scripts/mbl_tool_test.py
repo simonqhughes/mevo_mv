@@ -121,6 +121,20 @@ MBL_FAILURE = 1
 MBL_ERROR_MAX = 2
 
 """
+do_setup.sh bash script
+  A script used to setup the environment, which sets up the conf including bblayers.conf 
+"""
+do_setup_sh = '''\
+#!/bin/bash
+
+# file_stamp and file_name_root
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+
+MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
+'''
+
+"""
 do_build.sh bash script
   A script used to automate the bitbake build 
 """
@@ -183,6 +197,7 @@ EXTRALAYERS ?= " \
   ${OEROOT}/layers/meta-linaro/meta-linaro \
   ${OEROOT}/layers/meta-linaro/meta-linaro-toolchain \
   ${OEROOT}/layers/meta-linaro/meta-optee \
+  ${OEROOT}/layers/meta-linaro/meta-mbl-dev \
 "
 
 BBLAYERS = " \
@@ -397,14 +412,26 @@ class mbl_tool:
             logging.debug("Error: failed to copy build script.")
             return ret
     
-        # run build. this will fail the first time because bblayers.conf has the wrong layers in it
-        cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
+        # cp the do_setup.sh to the top level dir
+        setup_scriptfile = tempfile.NamedTemporaryFile()
+        setup_scriptfile.write(str.encode(do_setup_sh))
+        setup_scriptfile.flush()
+        cmd = "cp " + setup_scriptfile.name + " " + ws_dir + "/"
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.debug("Error: failed to copy setup script.")
+            return ret
+
+        # run setup to setup the bblayers.conf which will be replaced
+        cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(setup_scriptfile.name)
         print(cmd)
         print("cmd=%s" % cmd)
         ret = self.do_bash(cmd)
         
         # only overwrite the bblayers.conf if explicitly requested to do so
+        print("here1")
         if args.copy_bblayers_conf:
+            print("here2")
             # Remove the bad bblayers.conf received from the mbl-manifest repo.
             cmd = "rm " + ws_dir + "/build-mbl/conf/bblayers.conf"
             ret = app.do_bash(cmd)
@@ -414,7 +441,8 @@ class mbl_tool:
 
             # Copy the correct bblayers.conf to conf dir.
             bblayers_conf_file = tempfile.NamedTemporaryFile()
-            bblayers_conf_file.write(bb_layers_conf)
+            #todo: remove bblayers_conf_file.write(bb_layers_conf)
+            bblayers_conf_file.write(str.encode(bb_layers_conf))
             bblayers_conf_file.flush()
             cmd = "cp " + bblayers_conf_file.name + " " + ws_dir + "/build-mbl/conf/bblayers.conf"
             ret = app.do_bash(cmd)
@@ -675,7 +703,7 @@ if __name__ == "__main__":
     parser.add_argument('--meta-mbl-branch', default='', help='meta-mbl branch from which to take project.')
     parser.add_argument('--meta-virt-branch', default='', help='meta-virtualization branch from which to take project.')
     parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
-    parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
+    parser.add_argument('--copy-bblayers-conf', action='store_true', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
 	# todo: document this more mbl_tool_test.py --aws-get-images --aws-host [hostname] --aws-host-key [private-key.pem] --aws-path-root [pathspec to workspaces from which to fetch images]
     parser.add_argument('--aws-get-images', action='store_true', help='get mbl-console-images from remote aws server.')
