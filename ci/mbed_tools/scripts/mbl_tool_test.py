@@ -97,6 +97,7 @@ TODO
 - have a --no-build switch for commands that would normally do a build
   after putting down the workspace, so the command just puts down the 
   workspace.
+- be able to specify an mbl-manifest file other than default.xml
 """
 
 import subprocess
@@ -460,6 +461,69 @@ class mbl_tool:
         return ret
 
 
+    # ARGUMENTS:  
+    #   sftp mbl-console-image's from AWS VM so they can be flashed onto a local board.
+    #
+    def do_aws(self, pathspec):
+    	# build sftp comamnd line
+    	# sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@ec2-3-8-29-240.eu-west-2.compute.amazonaws.com:/datastore/2284/get_me2/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*.wic.gz
+
+        # make a directory to hold the images
+        cmd = "mkdir -p ${PWD}/" + pathspec
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.error("Error: failed to crate directory to hold artifacts.")
+            return ret
+    	
+        # Get the readme file (if present, dont fail if it isnt)
+        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/readme.txt"
+        self.do_bash(cmd)
+
+        # Get the bmap file by doing the following sftp command
+        #     sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem \
+        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*.wic.bmap"
+        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.bmap"
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.error("Error: failed to copy image bmap file.")
+            return ret
+
+        # do the following sftp command
+        #     sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem \
+        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.gz"
+        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.gz"
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.error("Error: failed to copy image gz file.")
+            return ret
+
+
+    def do_flash_board(self, pathspec, sudo_passwd):
+        # flash an rpi3
+
+    	# todo: sanity check args
+
+        cmd = "echo " + sudo_passwd + " | sudo -S umount /dev/sdd*"
+        self.do_bash(cmd)
+
+		#  sudo bmaptool copy --bmap mbl-console-image-test-raspberrypi3-mbl.wic.bmap mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
+        cmd = "echo " + sudo_passwd + " | sudo -S bmaptool copy --bmap " + os.environ['PWD'] + "/" + pathspec + "/mbl-console-image-raspberrypi3-mbl.wic.bmap " + os.environ['PWD'] + "/" + pathspec + "/mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd"
+        print("cmd=%s" % cmd)
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.error("Error: failed to flash sdcard.")
+            return ret
+
+        cmd = "echo " + sudo_passwd + " | sudo -S eject /dev/sdd"
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.error("Error: failed to eject sdcard.")
+            return ret
+            
+        return ret
+
+
+
 # class to help build test campaigns
 class mbl_test_campaign:
     
@@ -613,7 +677,20 @@ if __name__ == "__main__":
     parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', default='', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
-
+	# todo: document this more mbl_tool_test.py --aws-get-images --aws-host [hostname] --aws-host-key [private-key.pem] --aws-path-root [pathspec to workspaces from which to fetch images]
+    parser.add_argument('--aws-get-images', action='store_true', help='get mbl-console-images from remote aws server.')
+    parser.add_argument('--aws-host', default='', help='specify host name')
+    parser.add_argument('--aws-host-key', default='', help='specify host key pem file with private key')
+    parser.add_argument('--aws-pathspec', default='', help='specify path root on aws-host to workspaces to download images from e.g. /datastore/2284/default_20181115')
+    
+    # todo: document this more: 
+    parser.add_argument('--flash-board', action='store_true', help='enable the flash board (fb) subcommands')
+	# todo: replace with import getpass and password = getpass.getpass()
+    parser.add_argument('--fb-sudo-passwd', default='', help='password needed to run things as sudo')
+    parser.add_argument('--fb-pathspec', default='', help='specify path from current dir to download images from e.g. datastore/2284/default_20181115')
+    # would be good to specify --fb-machine = [rpi3|w7] so the /dev/sd[de] will be selected, but could get this from the actual image filename as has machine embedded in it.
+    
+    
     args = parser.parse_args()
     
     print("mbl_tool.py invokes with the following options:")
@@ -660,7 +737,15 @@ if __name__ == "__main__":
             # take default.xml and specifiy project branches to test
             tc = mbl_test_campaign()
             ret = tc.create_branch_test(args.manifest, args.mbl_config_branch, args.meta_mbl_branch, args.meta_virt_branch, args.oe_core_branch)
-           
+
+    elif args.aws_get_images:
+    	# want to get images from remote machine
+        ret = app.do_aws(args.aws_pathspec)
+
+    elif args.flash_board:
+    	# want to get images from remote machine
+        ret = app.do_flash_board(args.fb_pathspec, args.fb_sudo_passwd)
+
             
     else:
         app.mbl_config_branch = args.mbl_config_branch
