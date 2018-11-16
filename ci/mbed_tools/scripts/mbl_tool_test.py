@@ -166,6 +166,14 @@ bitbake mbl-console-image-test >> ${LOG_FILE} 2>&1
 
 # bblayers.conf so that a minimal number of layers can be specified for the project
 bb_layers_conf = '''\
+# Based on: conf/bblayers.conf
+# In open-source project: https://github.com/96boards/oe-rpb-manifest
+# 
+# Original file: Copyright (c) 2013 Khem Raj
+# Modifications: Copyright (c) 2018 Arm Limited and Contributors. All rights reserved.
+ 
+# SPDX-License-Identifier: MIT
+
 # LAYER_CONF_VERSION is increased each time build/conf/bblayers.conf
 # changes incompatibly
 LCONF_VERSION = "7"
@@ -177,8 +185,8 @@ BBFILES = ""
 
 # These layers hold recipe metadata not found in OE-core, but lack any machine or distro content
 BASELAYERS ?= " \
-  ${OEROOT}/layers/meta-openembedded/meta-networking \
   ${OEROOT}/layers/meta-openembedded/meta-filesystems \
+  ${OEROOT}/layers/meta-openembedded/meta-networking \
   ${OEROOT}/layers/meta-openembedded/meta-oe \
   ${OEROOT}/layers/meta-openembedded/meta-python \
   ${OEROOT}/layers/meta-virtualization \
@@ -194,10 +202,8 @@ BSPLAYERS ?= " \
 # Add your overlay location to EXTRALAYERS
 # Make sure to have a conf/layers.conf in there
 EXTRALAYERS ?= " \
-  ${OEROOT}/layers/meta-linaro/meta-linaro \
-  ${OEROOT}/layers/meta-linaro/meta-linaro-toolchain \
   ${OEROOT}/layers/meta-linaro/meta-optee \
-  ${OEROOT}/layers/meta-linaro/meta-mbl-dev \
+  ${OEROOT}/layers/meta-mbl-dev \
 "
 
 BBLAYERS = " \
@@ -207,6 +213,18 @@ BBLAYERS = " \
   ${EXTRALAYERS} \
   ${OEROOT}/layers/openembedded-core/meta \
 "
+
+# allow meta-mbl-restricted-extras to add itself to BBLAYERS, if present
+include ${OEROOT}/layers/meta-mbl-restricted-extras/conf/bblayers.conf
+
+# allow meta-mbl-internal-extras to add itself to BBLAYERS, if present
+include ${OEROOT}/layers/meta-mbl-internal-extras/conf/bblayers.conf
+
+# allow meta-mbl-reference-apps to add itself to BBLAYERS, if present
+include ${OEROOT}/layers/meta-mbl-reference-apps/conf/bblayers.conf
+
+# allow meta-mbl-reference-apps-internal to add itself to BBLAYERS, if present
+include ${OEROOT}/layers/meta-mbl-reference-apps-internal/conf/bblayers.conf
 '''
 
 
@@ -424,19 +442,16 @@ class mbl_tool:
 
         # run setup to setup the bblayers.conf which will be replaced
         cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(setup_scriptfile.name)
-        print(cmd)
         print("cmd=%s" % cmd)
         ret = self.do_bash(cmd)
         
         # only overwrite the bblayers.conf if explicitly requested to do so
-        print("here1")
         if args.copy_bblayers_conf:
-            print("here2")
             # Remove the bad bblayers.conf received from the mbl-manifest repo.
-            cmd = "rm " + ws_dir + "/build-mbl/conf/bblayers.conf"
+            cmd = "rm -f " + ws_dir + "/build-mbl/conf/bblayers.conf"
             ret = app.do_bash(cmd)
             if ret != 0:
-                logging.debug("Error: failed to remove bad bblayers.conf")
+                logging.debug("Error: failed to remove bad bblayers.conf (ret=%s)" % ret)
                 return ret
 
             # Copy the correct bblayers.conf to conf dir.
@@ -452,6 +467,7 @@ class mbl_tool:
     
         # run build 2nd time, which should succeed with correct bblayers.conf
         cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
+        print("run build 2nd time: cmd=%s" % cmd)
         ret = app.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to perform build.")
@@ -526,23 +542,45 @@ class mbl_tool:
             return ret
 
 
-    def do_flash_board(self, pathspec, sudo_passwd):
-        # flash an rpi3
+    def do_flash_board(self, pathspec, sudo_passwd, machine):
+        # flash a board (rpi3 or warp7)
 
-    	# todo: sanity check args
+        default_device_node_sdcard = "/dev/sd"
+        image_name_root = "mbl-console-image-"
+        
+        # todo: sanity check args
+        
+        if machine == "raspberrypi3-mbl":
+            devnode = default_device_node_sdcard + "d"
+        elif  machine == "imx7s-warp-mbl":
+            devnode = default_device_node_sdcard + "e"
+        else:
+            logging.error("Error: unsupported MACHINE=" + machine)
+            return -1
+         
 
-        cmd = "echo " + sudo_passwd + " | sudo -S umount /dev/sdd*"
+        cmd = "echo " + sudo_passwd + " | sudo -S umount " + devnode + "*"
         self.do_bash(cmd)
 
-		#  sudo bmaptool copy --bmap mbl-console-image-test-raspberrypi3-mbl.wic.bmap mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
-        cmd = "echo " + sudo_passwd + " | sudo -S bmaptool copy --bmap " + os.environ['PWD'] + "/" + pathspec + "/mbl-console-image-raspberrypi3-mbl.wic.bmap " + os.environ['PWD'] + "/" + pathspec + "/mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd"
+        # Compose .wic.bmap and .wic.gz file names by appending the MACHINE name to image_name_root
+        # with a space post-pended to separate the filename from other command line args..
+        image_name_root = image_name_root + machine 
+        img_bmap_file = "/" + image_name_root + ".wic.bmap "
+        img_gz_file = "/" + image_name_root + ".wic.gz "
+
+        #  sudo bmaptool copy --bmap mbl-console-image-test-raspberrypi3-mbl.wic.bmap mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
+        cmd = "echo " + sudo_passwd + " | sudo -S bmaptool copy --bmap " + \
+                os.environ['PWD'] + "/" + pathspec + img_bmap_file + \
+                os.environ['PWD'] + "/" + pathspec + img_gz_file + \
+                devnode
+
         print("cmd=%s" % cmd)
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.error("Error: failed to flash sdcard.")
             return ret
 
-        cmd = "echo " + sudo_passwd + " | sudo -S eject /dev/sdd"
+        cmd = "echo " + sudo_passwd + " | sudo -S eject " + devnode
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.error("Error: failed to eject sdcard.")
@@ -717,6 +755,7 @@ if __name__ == "__main__":
     parser.add_argument('--fb-sudo-passwd', default='', help='password needed to run things as sudo')
     parser.add_argument('--fb-pathspec', default='', help='specify path from current dir to download images from e.g. datastore/2284/default_20181115')
     # would be good to specify --fb-machine = [rpi3|w7] so the /dev/sd[de] will be selected, but could get this from the actual image filename as has machine embedded in it.
+    parser.add_argument('--fb-machine', default='imx7s-warp-mbl', help='specify the MACHINE [raspberrypi3-mbl|imx7s-warp-mbl]')
     
     
     args = parser.parse_args()
@@ -772,7 +811,7 @@ if __name__ == "__main__":
 
     elif args.flash_board:
     	# want to get images from remote machine
-        ret = app.do_flash_board(args.fb_pathspec, args.fb_sudo_passwd)
+        ret = app.do_flash_board(args.fb_pathspec, args.fb_sudo_passwd, args.fb_machine)
 
             
     else:
