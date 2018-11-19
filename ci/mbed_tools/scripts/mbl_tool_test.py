@@ -316,12 +316,20 @@ class mbl_tool:
     #   mbl_manifest_branch
     #     branch in the mbl-manifest repo to take default xml from e.g. for 
     #     testing PRs.
+    #   manifest_xml
+    #     manifest.xml file to use to perform with repo init -m manifest.xml
     ############################################################################# 
-    def do_build(self, test_filename_xml, jobs_dir, mbl_manifest_branch):
+    def do_build(self, test_filename_xml, jobs_dir, mbl_manifest_branch, manifest_xml):
 
         ret = MBL_FAILURE
         default_build = False
         build_script = do_build_sh
+        
+        # todo: sanity check args. 
+        
+        if manifest_xml != "default.xml" and manifest_xml != "default-dev.xml" and manifest_xml != "internal.xml":
+            logging.debug("Error: manifest.xml filename not recognized (%s)." % manifest_xml)
+            return -1
         
         if test_filename_xml == "":
             # generate a default name for the workspace directory
@@ -345,7 +353,8 @@ class mbl_tool:
         ret = self.do_bash("mkdir " + ws_dir)
         
         # cd into ws and  repo init using ssh
-        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + mbl_manifest_branch + " -m default.xml"
+        cmd = "cd " + ws_dir + " && repo init -u ssh://git@github.com/armmbed/mbl-manifest.git -b " + mbl_manifest_branch + " -m " + manifest_xml
+        print("repo init cmd=%s" % cmd)
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.debug("Error: failed to preform repo init from mbl-manifest.git.")
@@ -369,14 +378,27 @@ class mbl_tool:
         if default_build and jobs_dir == "":
             # the jobs dir hasnt been specified, so assume that we have to take the default.xml in ws_dir/.repo/manifests
             # and therefore jobs_dir =  ws_dir/.repo/manifests
+            # alternatively, if manifest_xml is specified, use that
             jobs_dir = ws_dir + "/.repo/manifests"
-            test_filename_xml = jobs_dir + '/' + 'default.xml' 
+            if manifest_xml != "":
+                test_filename_xml = jobs_dir + '/' + manifest_xml
+            else: 
+                test_filename_xml = jobs_dir + '/' + 'default.xml' 
             tc = mbl_test_campaign()
             ret = tc.create_branch_test(test_filename_xml, self.mbl_config_branch, self.meta_mbl_branch, self.meta_virt_branch, self.oe_core_branch)
             if ret != 0:
                 logging.debug("Error: failed to create default.xml with the revision=branch settings.")
                 return ret
-            test_filename_xml = 'default_test_branches.xml'
+            if manifest_xml != "":
+                test_filename_xml = jobs_dir + '/' + manifest_xml
+            else: 
+                test_filename_xml = 'default_test_branches.xml'
+            
+            #test_filename_xml = 'default_test_branches.xml'
+            test_filename_xml = os.path.basename(manifest_xml)
+            test_filename_xml = os.path.splitext(test_filename_xml)[0]
+            test_filename_xml += ('_test_branches.xml')
+            
             
             # repo init with new manifest
             cmd = "cd " + ws_dir + " && repo init -m " + test_filename_xml
@@ -757,6 +779,8 @@ if __name__ == "__main__":
     # would be good to specify --fb-machine = [rpi3|w7] so the /dev/sd[de] will be selected, but could get this from the actual image filename as has machine embedded in it.
     parser.add_argument('--fb-machine', default='imx7s-warp-mbl', help='specify the MACHINE [raspberrypi3-mbl|imx7s-warp-mbl]')
     
+    # todo: merge this with --manifest option (which doesnt work with do_build() command at present
+    parser.add_argument('--hack-manifest', default='default.xml', help='specify manifest.xml file do_build()')
     
     args = parser.parse_args()
     
@@ -821,7 +845,7 @@ if __name__ == "__main__":
         app.oe_core_branch = args.oe_core_branch
         app.build_mbl_console_image_test = args.build_mbl_console_image_test
         app.downloads_dir = args.downloads_dir
-        ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch)
+        ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch, args.hack_manifest)
 
     if do_print_usage:
         parser.print_usage()
