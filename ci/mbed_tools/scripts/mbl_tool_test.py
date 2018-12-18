@@ -150,6 +150,22 @@ bitbake mbl-console-image >> ${LOG_FILE} 2>&1
 '''
 
 """
+do_build_machine.sh bash script
+  A script used to automate the bitbake build for a machine
+"""
+do_build_machine_sh = '''\
+#!/bin/bash
+
+# file_stamp and file_name_root
+TIMESTAMP=$(date +%%Y%%m%%d_%%H%%M%%S)
+LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+
+MACHINE=%s DISTRO=mbl . setup-environment
+bitbake mbl-console-image >> ${LOG_FILE} 2>&1
+'''
+
+
+"""
 do_build_test.sh bash script
   A script used to automate the bitbake build for mbl-console-image-test 
 """
@@ -319,11 +335,13 @@ class mbl_tool:
     #   manifest_xml
     #     manifest.xml file to use to perform with repo init -m manifest.xml
     ############################################################################# 
-    def do_build(self, test_filename_xml, jobs_dir, mbl_manifest_branch, manifest_xml):
+    def do_build(self, test_filename_xml, jobs_dir, mbl_manifest_branch, manifest_xml, machine=""):
 
         ret = MBL_FAILURE
         default_build = False
-        build_script = do_build_sh
+        print("machine=%s" % machine)
+        build_script = (do_build_machine_sh % str(machine))
+        print("build_script=%s" % build_script)
         
         # todo: sanity check args. 
         
@@ -348,7 +366,7 @@ class mbl_tool:
         if self.jenkins:
             # in the case we're running on jenkins, prepend the path to the workspace
             ws_dir = self.ws_path + ws_dir
-         
+
         # create new dir for workspace with sdh_dev_mx as root
         ret = self.do_bash("mkdir " + ws_dir)
         
@@ -487,6 +505,13 @@ class mbl_tool:
                 logging.debug("Error: failed to copy new bblayers.conf into place.")
                 return ret
     
+        # copy mbed cloud credential files files
+        cmd = "cp " + "mevo/mbl/*.c " + ws_dir + "/build-mbl/"
+        ret = self.do_bash(cmd)
+        if ret != 0:
+            logging.debug("Error: failed to copy mbed cloud *.c credential files to build-mbl.")
+            return ret
+        
         # run build 2nd time, which should succeed with correct bblayers.conf
         cmd = "cd " + ws_dir  + " && /bin/bash " + os.path.basename(scriptfile.name)
         print("run build 2nd time: cmd=%s" % cmd)
@@ -802,10 +827,11 @@ if __name__ == "__main__":
         # run a test campaign of all the test.xml files in the specified dir
         # get the list of files and loop over them performing the tests. 
         job_list = app.get_job_list(args.jobsdir)
-        job_list.sort(cmp=None, key=None, reverse=False)
+        #job_list.sort(cmp=None, key=None, reverse=False)
+        job_list.sort(key=None, reverse=False)
         for job in job_list:
             # continue even if job is unsuccessful 
-            ret = app.do_build(job, args.jobsdir, args.mbl_manifest_branch)
+            ret = app.do_build(job, args.jobsdir, args.mbl_manifest_branch, args.manifest, args.fb_machine)
 
     elif args.tcg_revfile != "" or args.tcg_project_name != "":
 
@@ -845,7 +871,7 @@ if __name__ == "__main__":
         app.oe_core_branch = args.oe_core_branch
         app.build_mbl_console_image_test = args.build_mbl_console_image_test
         app.downloads_dir = args.downloads_dir
-        ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch, args.hack_manifest)
+        ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch, args.hack_manifest, args.fb_machine)
 
     if do_print_usage:
         parser.print_usage()
