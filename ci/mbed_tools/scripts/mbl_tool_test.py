@@ -395,6 +395,7 @@ class mbl_tool:
                 test_filename_xml = 'default_test_branches.xml'
             
             #test_filename_xml = 'default_test_branches.xml'
+            # todo: get the test_filename_xml returned from tc.create_branch_test
             test_filename_xml = os.path.basename(manifest_xml)
             test_filename_xml = os.path.splitext(test_filename_xml)[0]
             test_filename_xml += ('_test_branches.xml')
@@ -574,7 +575,7 @@ class mbl_tool:
         
         if machine == "raspberrypi3-mbl":
             devnode = default_device_node_sdcard + "d"
-        elif  machine == "imx7s-warp-mbl":
+        elif  machine == "imx7s-warp-mbl" or machine == "imx7d-pico-mbl" :
             devnode = default_device_node_sdcard + "e"
         else:
             logging.error("Error: unsupported MACHINE=" + machine)
@@ -765,19 +766,87 @@ if __name__ == "__main__":
     parser.add_argument('--oe-core-branch', default='', help='openembedded-core branch from which to take project.')
     parser.add_argument('--copy-bblayers-conf', action='store_true', help='copy the mevo bblayers.conf to the build-mbl conf dir.')
 
-	# todo: document this more mbl_tool_test.py --aws-get-images --aws-host [hostname] --aws-host-key [private-key.pem] --aws-path-root [pathspec to workspaces from which to fetch images]
+	# todo: document this more mbl_tool_test.py --aws-get-images --aws-host [hostname] --aws-host-key [private-key.pem] --aws-pathspec [pathspec to workspaces from which to fetch images]
+	#   --aws-get-images   main switch triggers this processing.
+	#   --aws-pathspec     specifies the path spec to the top level workspace directory on the aws remote host from which to fetch files.  
+	#   --aws-host         not currently implemented: hard coded into this script whats to use.
+	#   --aws-host-key     not currently implemented: hard coded into this script whats to use.
+	# 
+	# this is how to use this feature:
+	#  
+    #   simhug01@e113506-lin:/data/2284/test/to_delete/20181204$ mbl_tool_test.py --aws-get-images --aws-pathspec /datastore/2284/default_20181204_100611/
+    #   mbl_tool.py invokes with the following options:
+    #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
+    #   File "/datastore/2284/default_20181204_100611//readme.txt" not found.
+    #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
+    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-console-image-raspberrypi3-mbl.wic.bmap to mbl-console-image-raspberrypi3-mbl.wic.bmap
+    #   /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl 100%   13KB  12.6KB/s   00:00    
+    #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
+    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-console-image-raspberrypi3-mbl.wic.gz to mbl-console-image-raspberrypi3-mbl.wic.gz
+    #   /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl 100%  204MB  11.3MB/s   00:18    
+    #
+    # A directory hierarchy defined by --aws-pathspec arg is created locally and the firmware images stored in it.
+    #
+    # simhug01@e113506-lin:/data/2284/test/to_delete/20181204$ ll
+    # total 12
+    # drwxrwxr-x  3 simhug01 simhug01 4096 Dec  4 12:10 ./
+    # drwxrwxr-x 58 simhug01 simhug01 4096 Dec  4 12:07 ../
+    # drwxrwxr-x  3 simhug01 simhug01 4096 Dec  4 12:10 datastore/
+    # -rw-rw-r--  1 simhug01 simhug01    0 Dec  4 12:10 mbl_tool_script.log
+    # simhug01@e113506-lin:/data/2284/test/to_delete/20181204$ ls -al datastore/2284/default_20181204_100611/
+    # total 208428
+    # drwxrwxr-x 2 simhug01 simhug01      4096 Dec  4 12:10 .
+    # drwxrwxr-x 3 simhug01 simhug01      4096 Dec  4 12:10 ..
+    # -rw-r--r-- 1 simhug01 simhug01     12926 Dec  4 12:10 mbl-console-image-raspberrypi3-mbl.wic.bmap
+    # -rw-r--r-- 1 simhug01 simhug01 213405240 Dec  4 12:10 mbl-console-image-raspberrypi3-mbl.wic.gz
+	
     parser.add_argument('--aws-get-images', action='store_true', help='get mbl-console-images from remote aws server.')
     parser.add_argument('--aws-host', default='', help='specify host name')
     parser.add_argument('--aws-host-key', default='', help='specify host key pem file with private key')
     parser.add_argument('--aws-pathspec', default='', help='specify path root on aws-host to workspaces to download images from e.g. /datastore/2284/default_20181115')
     
     # todo: document this more: 
+    # This script can be used to program rpi3 sdcard or warp7 mmc. This is the comand line for programming rpi3?
+    #  
+    #     mbl_tool_test.py --flash-board --fb-pathspec datastore/2284/default_20181114_162600 --fb-machine raspberrypi3-mbl --fb-sudo-passwd `cat ~/myfile.txt`
+    #
+    # --flash-board 
+	#
+	#     simhug01@e113506-lin:/data/2284/test/to_delete/20181204$ mbl_tool_test.py --flash-board --fb-pathspec datastore/2284/default_20181204_100611/ --fb-sudo-passwd `cat ~/myfile.txt` --fb-machine raspberrypi3-mbl
+    #     mbl_tool.py invokes with the following options:
+    #     [sudo] password for simhug01: umount: /dev/sdd: not mounted
+    #     umount: /dev/sdd1: not mounted
+    #     umount: /dev/sdd10: not mounted
+    #     umount: /dev/sdd11: not mounted
+    #     umount: /dev/sdd12: not mounted
+    #     umount: /dev/sdd2: not mounted
+    #     umount: /dev/sdd3: not mounted
+    #     umount: /dev/sdd4: not mounted
+    #     umount: /dev/sdd5: not mounted
+    #     umount: /dev/sdd6: not mounted
+    #     umount: /dev/sdd7: not mounted
+    #     umount: /dev/sdd8: not mounted
+    #     umount: /dev/sdd9: not mounted
+    #     cmd=echo St0up@GR18 | sudo -S bmaptool copy --bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-console-image-raspberrypi3-mbl.wic.bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
+    #     bmaptool: info: block map format version 2.0
+    #     bmaptool: info: 546306 blocks of size 4096 (2.1 GiB), mapped 141690 blocks (553.5 MiB or 25.9%)
+    #     bmaptool: info: copying image 'mbl-console-image-raspberrypi3-mbl.wic.gz' to block device '/dev/sdd' using bmap file 'mbl-console-image-raspberrypi3-mbl.wic.bmap'
+    #     bmaptool: info: 100% copied
+    #     bmaptool: info: synchronizing '/dev/sdd'
+    #     bmaptool: info: copying time: 46.9s, copying speed 11.8 MiB/sec
+    #     simhug01@e113506-lin:/data/2284/test/to_delete/20181204$
+    #
+    # Alternatively, this would be the command for warp7:
+    #   simhug01@e113506-lin:/data/2284/test/to_delete/20181204$ mbl_tool_test.py --flash-board --fb-pathspec datastore/2284/default_20181204_102848/ --fb-sudo-passwd `cat ~/myfile.txt` --fb-machine imx7s-warp-mbl
+    #
+    # todo: replace with import getpass and password = getpass.getpass()
+	
+
     parser.add_argument('--flash-board', action='store_true', help='enable the flash board (fb) subcommands')
-	# todo: replace with import getpass and password = getpass.getpass()
     parser.add_argument('--fb-sudo-passwd', default='', help='password needed to run things as sudo')
     parser.add_argument('--fb-pathspec', default='', help='specify path from current dir to download images from e.g. datastore/2284/default_20181115')
     # would be good to specify --fb-machine = [rpi3|w7] so the /dev/sd[de] will be selected, but could get this from the actual image filename as has machine embedded in it.
-    parser.add_argument('--fb-machine', default='imx7s-warp-mbl', help='specify the MACHINE [raspberrypi3-mbl|imx7s-warp-mbl]')
+    parser.add_argument('--fb-machine', default='imx7s-warp-mbl', help='specify the MACHINE [raspberrypi3-mbl|imx7s-warp-mbl|imx7d-pico-mbl]')
     
     # todo: merge this with --manifest option (which doesnt work with do_build() command at present
     parser.add_argument('--hack-manifest', default='default.xml', help='specify manifest.xml file do_build()')
