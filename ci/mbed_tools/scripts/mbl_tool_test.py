@@ -29,7 +29,7 @@ Do a build of mbl-manifest master branch using the default.xml. This
 - repo inits in default_<datestamp>
 - repo sync in default_<datestamp>
 - sources the environment setup script and sets MACHINE=raspberrypi3, DISTRO=mbl
-- bitbake mbl-console-image
+- bitbake mbl-image-production
 
     mbl_tool.py
 
@@ -57,9 +57,9 @@ Run a test campaign of all the test.xml files in a jobs directory:
 
    mbl_tool.py --jobdir=jobs
 
-Redo a bitbake mbl-console-image build for a previously created workspace:
+Redo a bitbake mbl-image-production build for a previously created workspace:
 
-   mbl_tool.py --do-mbl-console-image --manifest=jobs/20171006_1030_test_23.xml
+   mbl_tool.py --do-mbl-image-production --manifest=jobs/20171006_1030_test_23.xml
 
 Generate a test campaign (set of test.xml files):
 
@@ -129,7 +129,7 @@ do_setup_sh = '''\
 
 # file_stamp and file_name_root
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+LOG_FILE=bb_build_log_mbl_image_production_${TIMESTAMP}.txt
 
 MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
 '''
@@ -143,10 +143,10 @@ do_build_sh = '''\
 
 # file_stamp and file_name_root
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+LOG_FILE=bb_build_log_mbl_image_production_${TIMESTAMP}.txt
 
 MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
-bitbake mbl-console-image >> ${LOG_FILE} 2>&1
+bitbake mbl-image-production >> ${LOG_FILE} 2>&1
 '''
 
 """
@@ -158,26 +158,26 @@ do_build_machine_sh = '''\
 
 # file_stamp and file_name_root
 TIMESTAMP=$(date +%%Y%%m%%d_%%H%%M%%S)
-LOG_FILE=bb_build_log_mbl_console_image_${TIMESTAMP}.txt
+LOG_FILE=bb_build_log_mbl_image_production_${TIMESTAMP}.txt
 
 MACHINE=%s DISTRO=mbl . setup-environment
-bitbake mbl-console-image >> ${LOG_FILE} 2>&1
+bitbake mbl-image-production >> ${LOG_FILE} 2>&1
 '''
 
 
 """
 do_build_test.sh bash script
-  A script used to automate the bitbake build for mbl-console-image-test 
+  A script used to automate the bitbake build for mbl-image-development 
 """
-do_build_mbl_console_image_test_sh = '''\
+do_build_mbl_image_development_sh = '''\
 #!/bin/bash
 
 # file_stamp and file_name_root
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE=bb_build_log_mbl_console_image_test_${TIMESTAMP}.txt
+LOG_FILE=bb_build_log_mbl_image_production_test_${TIMESTAMP}.txt
 
 MACHINE=raspberrypi3-mbl DISTRO=mbl . setup-environment
-bitbake mbl-console-image-test >> ${LOG_FILE} 2>&1
+bitbake mbl-image-development >> ${LOG_FILE} 2>&1
 '''
 
 # bblayers.conf so that a minimal number of layers can be specified for the project
@@ -260,7 +260,7 @@ set -x
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE=bb_build_log_iotmbl_7_test_14_${TIMESTAMP}.txt
 
-cd ../../build-mbl && bitbake mbl-console-image 2>&1 >> ${LOG_FILE}
+cd ../../build-mbl && bitbake mbl-image-production 2>&1 >> ${LOG_FILE}
 '''
 
 ##############################################################################
@@ -288,7 +288,7 @@ class mbl_tool:
         """
 
         # attribute indicating whether the script is running on jenkins or not 
-        self.build_mbl_console_image_test = False
+        self.build_mbl_image_development = False
         self.jenkins = False 
         self.ws_path = ""  
         self.mbl_config_branch = "" 
@@ -457,10 +457,10 @@ class mbl_tool:
                 return ret
         
         # cp the do_build.sh to the top level dir
-        if self.build_mbl_console_image_test:
-            # the user wants to build the mbl-console-image-test target rather than 
-            # mbl-console-image 
-            build_script = do_build_mbl_console_image_test_sh
+        if self.build_mbl_image_development:
+            # the user wants to build the mbl-image-development target rather than 
+            # mbl-image-production 
+            build_script = do_build_mbl_image_development_sh
         
         scriptfile = tempfile.NamedTemporaryFile()
         scriptfile.write(str.encode(build_script))
@@ -526,7 +526,7 @@ class mbl_tool:
 
     # ARGUMENTS:  
     # test_filename_xml    manifest.xml filename that specifies build
-    def do_mbl_console_image(self, test_filename_xml):
+    def do_mbl_image_production(self, test_filename_xml):
 
         ret = MBL_FAILURE
         
@@ -554,11 +554,11 @@ class mbl_tool:
 
 
     # ARGUMENTS:  
-    #   sftp mbl-console-image's from AWS VM so they can be flashed onto a local board.
+    #   sftp mbl-image-production's from AWS VM so they can be flashed onto a local board.
     #
     def do_aws(self, pathspec):
     	# build sftp comamnd line
-    	# sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@ec2-3-8-29-240.eu-west-2.compute.amazonaws.com:/datastore/2284/get_me2/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*.wic.gz
+    	# sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@ec2-3-8-29-240.eu-west-2.compute.amazonaws.com:/datastore/2284/get_me2/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-image-production-*.wic.gz
 
         # make a directory to hold the images
         cmd = "mkdir -p ${PWD}/" + pathspec
@@ -573,8 +573,8 @@ class mbl_tool:
 
         # Get the bmap file by doing the following sftp command
         #     sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem \
-        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*.wic.bmap"
-        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.bmap"
+        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-image-production-*.wic.bmap"
+        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-image-production-*-mbl.wic.bmap"
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.error("Error: failed to copy image bmap file.")
@@ -582,8 +582,8 @@ class mbl_tool:
 
         # do the following sftp command
         #     sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem \
-        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.gz"
-        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-console-image-*-mbl.wic.gz"
+        #         ubuntu@`cat ~/host-aws.txt`:/[patjspec]*/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-image-production-*-mbl.wic.gz"
+        cmd = "cd ${PWD}/" + pathspec + " && sftp -i ~/.ssh/sdh_mbed_linux_20180910_key_pair.pem ubuntu@`cat ~/host-aws.txt`:" + pathspec + "/build-mbl/tmp-mbl-glibc/deploy/images/*/mbl-image-production-*-mbl.wic.gz"
         ret = self.do_bash(cmd)
         if ret != 0:
             logging.error("Error: failed to copy image gz file.")
@@ -594,7 +594,7 @@ class mbl_tool:
         # flash a board (rpi3 or warp7)
 
         default_device_node_sdcard = "/dev/sd"
-        image_name_root = "mbl-console-image-"
+        image_name_root = "mbl-image-production-"
         
         # todo: sanity check args
         
@@ -616,7 +616,7 @@ class mbl_tool:
         img_bmap_file = "/" + image_name_root + ".wic.bmap "
         img_gz_file = "/" + image_name_root + ".wic.gz "
 
-        #  sudo bmaptool copy --bmap mbl-console-image-test-raspberrypi3-mbl.wic.bmap mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
+        #  sudo bmaptool copy --bmap mbl-image-development-raspberrypi3-mbl.wic.bmap mbl-image-production-raspberrypi3-mbl.wic.gz /dev/sdd
         cmd = "echo " + sudo_passwd + " | sudo -S bmaptool copy --bmap " + \
                 os.environ['PWD'] + "/" + pathspec + img_bmap_file + \
                 os.environ['PWD'] + "/" + pathspec + img_gz_file + \
@@ -776,8 +776,8 @@ if __name__ == "__main__":
 
     # command line argment setup and parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument('--build-mbl-console-image-test', action='store_true', help='perform the mbl-console-image-test build')
-    parser.add_argument('--do-mbl-console-image', action='store_true', help='perform the mbl-console-image build (--manifest required)')
+    parser.add_argument('--build-mbl-image-development', action='store_true', help='perform the mbl-image-development build')
+    parser.add_argument('--do-mbl-image-production', action='store_true', help='perform the mbl-image-production build (--manifest required)')
     parser.add_argument('--do-test', action='store_true', help='perform test code')
     parser.add_argument('--downloads-dir', default='', help='specify full path to shared downloads directory')
     parser.add_argument('--manifest', default='', help='specify manifest.xml file for test or template for test campaign generation')
@@ -804,10 +804,10 @@ if __name__ == "__main__":
     #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
     #   File "/datastore/2284/default_20181204_100611//readme.txt" not found.
     #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
-    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-console-image-raspberrypi3-mbl.wic.bmap to mbl-console-image-raspberrypi3-mbl.wic.bmap
+    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-image-production-raspberrypi3-mbl.wic.bmap to mbl-image-production-raspberrypi3-mbl.wic.bmap
     #   /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl 100%   13KB  12.6KB/s   00:00    
     #   Connected to ec2-52-56-158-158.eu-west-2.compute.amazonaws.com.
-    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-console-image-raspberrypi3-mbl.wic.gz to mbl-console-image-raspberrypi3-mbl.wic.gz
+    #   Fetching /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl-image-production-raspberrypi3-mbl.wic.gz to mbl-image-production-raspberrypi3-mbl.wic.gz
     #   /datastore/2284/default_20181204_100611//build-mbl/tmp-mbl-glibc/deploy/images/raspberrypi3-mbl/mbl 100%  204MB  11.3MB/s   00:18    
     #
     # A directory hierarchy defined by --aws-pathspec arg is created locally and the firmware images stored in it.
@@ -822,10 +822,10 @@ if __name__ == "__main__":
     # total 208428
     # drwxrwxr-x 2 simhug01 simhug01      4096 Dec  4 12:10 .
     # drwxrwxr-x 3 simhug01 simhug01      4096 Dec  4 12:10 ..
-    # -rw-r--r-- 1 simhug01 simhug01     12926 Dec  4 12:10 mbl-console-image-raspberrypi3-mbl.wic.bmap
-    # -rw-r--r-- 1 simhug01 simhug01 213405240 Dec  4 12:10 mbl-console-image-raspberrypi3-mbl.wic.gz
+    # -rw-r--r-- 1 simhug01 simhug01     12926 Dec  4 12:10 mbl-image-production-raspberrypi3-mbl.wic.bmap
+    # -rw-r--r-- 1 simhug01 simhug01 213405240 Dec  4 12:10 mbl-image-production-raspberrypi3-mbl.wic.gz
 	
-    parser.add_argument('--aws-get-images', action='store_true', help='get mbl-console-images from remote aws server.')
+    parser.add_argument('--aws-get-images', action='store_true', help='get mbl-image-productions from remote aws server.')
     parser.add_argument('--aws-host', default='', help='specify host name')
     parser.add_argument('--aws-host-key', default='', help='specify host key pem file with private key')
     parser.add_argument('--aws-pathspec', default='', help='specify path root on aws-host to workspaces to download images from e.g. /datastore/2284/default_20181115')
@@ -852,10 +852,10 @@ if __name__ == "__main__":
     #     umount: /dev/sdd7: not mounted
     #     umount: /dev/sdd8: not mounted
     #     umount: /dev/sdd9: not mounted
-    #     cmd=echo St0up@GR18 | sudo -S bmaptool copy --bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-console-image-raspberrypi3-mbl.wic.bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-console-image-raspberrypi3-mbl.wic.gz /dev/sdd
+    #     cmd=echo St0up@GR18 | sudo -S bmaptool copy --bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-image-production-raspberrypi3-mbl.wic.bmap /data/2284/test/to_delete/20181204/datastore/2284/default_20181204_100611//mbl-image-production-raspberrypi3-mbl.wic.gz /dev/sdd
     #     bmaptool: info: block map format version 2.0
     #     bmaptool: info: 546306 blocks of size 4096 (2.1 GiB), mapped 141690 blocks (553.5 MiB or 25.9%)
-    #     bmaptool: info: copying image 'mbl-console-image-raspberrypi3-mbl.wic.gz' to block device '/dev/sdd' using bmap file 'mbl-console-image-raspberrypi3-mbl.wic.bmap'
+    #     bmaptool: info: copying image 'mbl-image-production-raspberrypi3-mbl.wic.gz' to block device '/dev/sdd' using bmap file 'mbl-image-production-raspberrypi3-mbl.wic.bmap'
     #     bmaptool: info: 100% copied
     #     bmaptool: info: synchronizing '/dev/sdd'
     #     bmaptool: info: copying time: 46.9s, copying speed 11.8 MiB/sec
@@ -882,7 +882,7 @@ if __name__ == "__main__":
     #for attr, value in args.__dict__.iteritems():
     #    print("%-25s:\t%s" % (attr, value))
 
-    if args.do_mbl_console_image:
+    if args.do_mbl_image_production:
         # Rebuild a previously created workspace, that may have only partially built, for example
         if args.manifest == "":
             logging.error("Error: name of manifest.xml not set. Required to identify workspace dir.")
@@ -890,13 +890,12 @@ if __name__ == "__main__":
         
         else: 
             # just perform build step
-            ret = app.do_mbl_console_image(args.manifest)
+            ret = app.do_mbl_image_production(args.manifest)
 
     elif args.jobsdir != "":
         # run a test campaign of all the test.xml files in the specified dir
         # get the list of files and loop over them performing the tests. 
         job_list = app.get_job_list(args.jobsdir)
-        #job_list.sort(cmp=None, key=None, reverse=False)
         job_list.sort(key=None, reverse=False)
         for job in job_list:
             # continue even if job is unsuccessful 
@@ -938,7 +937,7 @@ if __name__ == "__main__":
         app.meta_mbl_branch = args.meta_mbl_branch
         app.meta_virt_branch = args.meta_virt_branch
         app.oe_core_branch = args.oe_core_branch
-        app.build_mbl_console_image_test = args.build_mbl_console_image_test
+        app.build_mbl_image_development = args.build_mbl_image_development
         app.downloads_dir = args.downloads_dir
         ret = app.do_build(args.manifest, args.jobsdir, args.mbl_manifest_branch, args.hack_manifest, args.fb_machine)
 
