@@ -4,6 +4,9 @@
   
   <default revision="master" sync-j="4"/>
   
-  <project name="armmbed/psa-storage" path="psa-storage" remote="github" revision="67143ec8ba43ca7c5379f65f09d4b512a74b378d" upstream="sdh_iotmbl_2178_2_file_backend_in_libpsastorage"/>
-  <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="b113a50e962ce9fe1bd4ba21ebbc827119b4ec1c" upstream="sdh_iotmbl_2178_file_backend_in_libpsastorage"/>
+  <project name="armmbed/mevo" path="mevo" remote="github" revision="cff1449a7ee7d32253abafc2c376eb0acd45d740" upstream="master">
+    <linkfile dest="Makefile" src="jobs/3003/Makefile"/>
+  </project>
+  <project name="armmbed/psa-storage" path="psa-storage" remote="github" revision="8367079b8570b170914f35ed194483de11a33cc1" upstream="feature-psa-storage"/>
+  <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="e071cbd001c438a798039192a1b711a5b6328e85" upstream="sdh_iotmbl_2178_file_backend_in_libpsastorage"/>
 </manifest>
