@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote fetch="ssh://git@github.com" name="github"/>
+  
+  <default revision="master" sync-j="4"/>
+  
+  <project name="armmbed/psa-storage" path="psa-storage" remote="github" revision="67143ec8ba43ca7c5379f65f09d4b512a74b378d" upstream="sdh_iotmbl_2178_2_file_backend_in_libpsastorage"/>
+  <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="b113a50e962ce9fe1bd4ba21ebbc827119b4ec1c" upstream="sdh_iotmbl_2178_file_backend_in_libpsastorage"/>
+</manifest>
