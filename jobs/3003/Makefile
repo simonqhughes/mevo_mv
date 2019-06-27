@@ -44,3 +44,18 @@ test:
 manifest: psa-storage-pinned-manifest.xml
 	repo manifest -r -o psa-storage-pinned-manifest.xml
 
+# create a workspace
+ws_create:
+	repo init -u https://github.com/armmbed/mbl-manifest
+	git clone git@github.com:armmbed/mevo mevo_create_clone
+	cp $(TOPDIR)/mevo_create_clone/jobs/3003/psa-storage-manifest.xml $(TOPDIR)/.repo/manifests
+	repo init -m psa-storage-manifest.xml
+	repo sync
+	rm -IR $(TOPDIR)/mevo_create_clone
+
+# delete the workspace
+ws_delete:
+	rm -IR $(TOPDIR)/mevo
+	rm -IR $(TOPDIR)/psa-storage
+	rm -IR $(TOPDIR)/.repo
+	rm -IR $(TOPDIR)/mbed-crypto
