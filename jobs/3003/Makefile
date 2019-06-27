@@ -33,7 +33,7 @@ psa-storage-clean:
 
 .PHONY: psa-storage-install
 psa-storage-install: psa-storage
-	make -C psa-storage install PREFIX_DEFAULT=$(TOPDIR)/psa-storage/usr/local
+	make -C psa-storage install prefix=$(TOPDIR)/psa-storage/usr/local
 
 
 test:
@@ -41,7 +41,8 @@ test:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
 
-manifest: psa-storage-pinned-manifest.xml
+.PHONY: manifest
+manifest:
 	repo manifest -r -o psa-storage-pinned-manifest.xml
 
 # create a workspace
