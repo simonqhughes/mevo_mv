@@ -7,7 +7,7 @@ LDFLAGS="-L${TOPDIR}/psa-storage/usr/local/lib -lpsastorage"
 LD_LIBRARY_PATH=$(TOPDIR)/mbed-crypto/library/:$(TOPDIR)/psa-storage/usr/local/lib
 
 .PHONY: all
-all: mbed-crypto 
+all: mbed-crypto
 
 .PHONY: mbed-crypto
 mbed-crypto: psa-storage-install
@@ -38,7 +38,9 @@ psa-storage-install: psa-storage
 
 test:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_crypto_persistent_key && cd ../..
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
 
 manifest: psa-storage-pinned-manifest.xml
 	repo manifest -r -o psa-storage-pinned-manifest.xml
+
