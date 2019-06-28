@@ -6,7 +6,7 @@
   <remote fetch="ssh://git@github.com" name="github"/>
   <default revision="master" sync-j="4"/>
 
-  <project name="armmbed/psa-storage" path="psa-storage" remote="github" revision="sdh_iotmbl_2178_2_file_backend_in_libpsastorage"/>
+  <project name="armmbed/psa-storage" path="psa-storage" remote="github" revision="feature-psa-storage"/>
   <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="sdh_iotmbl_2178_file_backend_in_libpsastorage"/>
   <project name="armmbed/mevo" path="mevo" remote="github">
     <linkfile dest="Makefile" src="jobs/3003/Makefile"/>
