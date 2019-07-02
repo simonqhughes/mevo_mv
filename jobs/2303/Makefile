@@ -36,17 +36,26 @@ psa-storage-install: psa-storage
 	make -C psa-storage install prefix=$(TOPDIR)/psa-storage/usr/local
 
 
-test:
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_crypto_persistent_key && cd ../..
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
+test: test-mbed-crypto-app test-mbed-crypto-its test-mbed-cryto-key test-psa-storage-app
+
+test-mbed-crypto-app:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
+
+test-mbed-crypto-its:
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
+
+test-mbed-crypto-key:
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_crypto_persistent_key && cd ../..
+
+test-psa-storage-app:
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd psa-storage/app && ./psa-storage-example-app && cd ../..
 
 .PHONY: manifest
 manifest:
 	repo manifest -r -o psa-storage-pinned-manifest.xml
 
 # create a workspace
-ws_create:
+ws-create:
 	repo init -u https://github.com/armmbed/mbl-manifest
 	git clone git@github.com:armmbed/mevo mevo_create_clone
 	cp $(TOPDIR)/mevo_create_clone/jobs/2303/psa-storage-manifest.xml $(TOPDIR)/.repo/manifests
@@ -55,7 +64,7 @@ ws_create:
 	rm -IR $(TOPDIR)/mevo_create_clone
 
 # delete the workspace
-ws_delete:
+ws-delete:
 	rm -IR $(TOPDIR)/mevo
 	rm -IR $(TOPDIR)/psa-storage
 	rm -IR $(TOPDIR)/.repo
