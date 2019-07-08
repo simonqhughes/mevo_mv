@@ -2,7 +2,7 @@
 # Makefile to make composite project of mbed-crypto and libpsastorage
 
 TOPDIR = $(shell pwd)
-CFLAGS="-I${TOPDIR}/psa-storage/inc -I${TOPDIR}/psa-storage/configs -DMBEDTLS_CONFIG_FILE='<psa_storage_config.h>'"
+CFLAGS="-I${TOPDIR}/psa-storage/inc -I${TOPDIR}/psa-storage/configs -DMBEDTLS_CONFIG_FILE='<mbed_crypto_psa_storage_config.h>'"
 LDFLAGS="-L${TOPDIR}/psa-storage/usr/local/lib -lpsastorage"
 LD_LIBRARY_PATH=$(TOPDIR)/mbed-crypto/library/:$(TOPDIR)/psa-storage/usr/local/lib
 
