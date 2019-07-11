@@ -35,6 +35,13 @@
 # ==========
 # [1] See the following document in the Linux kernel source code tree: 
 #       <src/>/Documentation/filesystems/overlayfs.txt
+#
+# TODO: 
+# - allow _UPPER dir to be configured by a command line arg that can be
+#   specified to the script.
+# - allow _LOWER to be specified as command line arg. check if this can be
+#   supplied by ecryptfs.service file.
+
 
  
 
@@ -54,20 +61,23 @@ EFS_WRAP_PASSPH="ecryptfs-wrap-passphrase"
 # Symbols
 ###############################################################################
 # TODO: set this back when done testing on PC
-EFS_PREFIX="./"
+#EFS_PREFIX="./"
+EFS_PREFIX=""
 EFS_FSTAB_PATH=${EFS_PREFIX}"/etc/fstab"
 # todo: set EFS_HOME to empty
 EFS_HOME=${EFS_PREFIX}"/home"
 EFS_RANDOM="/dev/random"
 # TODO: remove next line
-EFS_RANDOM="/dev/urandom"
+#EFS_RANDOM="/dev/urandom"
 EFS_USER="root"
 
 # Directory to store configuration artifacts
 EFS_CONFIG_DIR=".ecryptfs"
 EFS_CONFIG_DIR_PATH=${EFS_HOME}/${EFS_USER}/${EFS_CONFIG_DIR}
+EFS_CONFIG_FSTAB_PATH=${EFS_CONFIG_DIR_PATH}/"fstab.old"
 EFS_CONFIG_KEY_FILENAME_PATH=${EFS_CONFIG_DIR_PATH}/"wrapped-passphrase.bin"
-EFS_CONFIG_KEY_SIG_FILE_PATH=${EFS_CONFIG_DIR_PATH}/"key_sig.txt"
+# TODO: remove this as not used
+# EFS_CONFIG_KEY_SIG_FILE_PATH=${EFS_CONFIG_DIR_PATH}/"key_sig.txt"
 EFS_CONFIG_PASSPHRASE_FILE_PATH=${EFS_CONFIG_DIR_PATH}/"passphrase.txt"
 
 # This is the path to the encrypted storage directory on the underlying 
@@ -84,38 +94,52 @@ EFS_SESSION_KEY_BYTES="16"
 # Global Variables
 ###############################################################################
 
+# Error codes
+EFS_SUCCESS_KEY_CREATED=1
+EFS_SUCCESS=0
+EFS_ERROR=-1
+EFS_RET=${EFS_SUCCESS}
 
 ###############################################################################
 # FUNCTION: efs_init_pc
 #  Initialise on PC for testing purposes.
 #  Can be removed from final version
 ###############################################################################
-efs_init_pc()
+function efs_init_pc()
 {
-    mkdir -p ${EFS_PREFIX}/"etc"  
+    if [ ! -d "${EFS_CONFIG_DIR_PATH}" ]; then
+        mkdir -p ${EFS_PREFIX}/"etc"
+    fi
 }
 
 ###############################################################################
-# FUNCTION: efs_generate_keys()
-#  Generate keys used for x and y.
+# FUNCTION: efs_sys_init()
+#  Perform the first boot system initialisation. In summary:
+#  - Generate the key.
+#  - Gnerate the passphrase for potecting the key
+#  - Wrap the key with the passphrase
+#  - Insert the wrapped key into the keyring and recover the key signature.
+#  - Update /etc/fstab 
 ###############################################################################
-efs_generate_keys()
+function efs_sys_init()
 {
-    local ret=0
+    local ret=${EFS_ERROR}
     local efs_fekek=""
     local efs_fekek_passphrase=""
     local efs_config_fstab_entry=""
     local sig=""
     
-    # If the directory exists then this has been run before and should not be
-    # run again.
+    # If the directory exists then the one-time system initialisation has already
+    # been performed, and should not be run again.
     if [ -d "${EFS_CONFIG_DIR_PATH}" ]; then
         # setup has been run previously on first time startup  
-        return $ret
+        return ${EFS_SUCCESS}
+    else
+        mkdir -p ${EFS_CONFIG_DIR_PATH}
+        mkdir -p ${EFS_CONFIG_LOWER_PATH}
+        mkdir -p ${EFS_CONFIG_UPPER_PATH}
     fi
     
-    mkdir -p ${EFS_CONFIG_DIR_PATH}
-
     # This is the File Encryption Key Encryption Key. It is intended to be stored
     # on the file system protected by the passphrase.
     efs_fekek=$(od -x --read-bytes=100 --width=${EFS_KEY_WIDTH} ${EFS_RANDOM} | head -n 1 | sed "s/^0000000//" | sed "s/\\s*//g")
@@ -126,7 +150,7 @@ efs_generate_keys()
     efs_fekek_passphrase=$(od -x --read-bytes=100 --width=${EFS_KEY_WIDTH} ${EFS_RANDOM} | head -n 1 | sed "s/^0000000//" | sed "s/\\s*//g")
     
     # store key and passphrase in files for use later
-    echo ${efs_fekek_passphrase} > ${EFS_CONFIG_PASSPHRASE_FILE_PATH} 
+    echo "passphrase_passwd=${efs_fekek_passphrase}" > ${EFS_CONFIG_PASSPHRASE_FILE_PATH} 
     
     # store the passphrase in the configuration area.
     # Note, this shouldnt be done. the passphrase should be
@@ -136,65 +160,44 @@ efs_generate_keys()
     # create the wrapped-passphrase file.
     printf "%s\n%s" ${efs_fekek} ${efs_fekek_passphrase} | ${EFS_WRAP_PASSPH} ${EFS_CONFIG_KEY_FILENAME_PATH} -
 
-    # install the wrapped key in the keyring
-    # cat /home/root/passphrase.txt | ecryptfs-insert-wrapped-passphrase-into-keyring /home/root/.ecryptfs/wrapped-passphrase - 
-    sig=$(cat ${EFS_CONFIG_PASSPHRASE_FILE_PATH} | ${EFS_INSERT_PASSPH} ${EFS_CONFIG_KEY_FILENAME_PATH} -)
+    # Install the wrapped key in the keyring for use by ecryptfs
+    # cat "<passphrase>" | ecryptfs-insert-wrapped-passphrase-into-keyring /home/root/.ecryptfs/wrapped-passphrase - 
+    sig=$(echo ${efs_fekek_passphrase} | ${EFS_INSERT_PASSPH} ${EFS_CONFIG_KEY_FILENAME_PATH} -)
     
-    # Extract the key signature from within square branckets (e.g. "<some text> [dd0a45455a291a98] <other text> ").
+    # Extract the key signature from within "[]" (e.g. "<some text> [dd0a45455a291a98] <other text> ").
     sig=${sig/*"["/""}
     sig=${sig/"]"*/""}
     
-    # check that everything is as expected by removing the key from the keyring
-    key_id=$(keyctl search @u user $sig)
-    keyctl revoke ${key_id}
-    keyctl reap 
-    
     # TODO: Is it really necessary to store this? as its stored in the fstab
-    # store the signature of use later by xyx: TODO: say what its used for.
-    echo ${sig} > ${EFS_CONFIG_KEY_SIG_FILE_PATH}
-
-    # update /etc/fstab so can do mount operation
-    # this involves inserting the key so that the signature can be recovered
-    # and therefore used in the fstab entry line.
-    efs_config_fstab_entry="${EFS_CONFIG_LOWER_PATH} ${EFS_CONFIG_UPPER_PATH} ecryptfs "
-    efs_config_fstab_entry+="noauto,user,"
-    efs_config_fstab_entry+="ecryptfs_sig=${sig},"
-    efs_config_fstab_entry+="ecryptfs_fnek_sig=${sig},"
-    efs_config_fstab_entry+="ecryptfs_cipher=aes,ecryptfs_key_bytes=${EFS_SESSION_KEY_BYTES},"
-    efs_config_fstab_entry+="key=passphrase:passphrase_passwd_file=${EFS_CONFIG_PASSPHRASE_FILE_PATH},"
-    efs_config_fstab_entry+="ecryptfs_passthrough=n,ecryptfs_unlink_sigs 0 0"
+    # store the signature of use later by xyx: 
+    # echo "${sig}" > ${EFS_CONFIG_KEY_SIG_FILE_PATH}
     
-    # TODO: check if rm -f works even when no file present
-    rm -f ${EFS_FSTAB_PATH}".old"
     if [ -f "${EFS_FSTAB_PATH}" ]; then
-        cp -f ${EFS_FSTAB_PATH} ${EFS_FSTAB_PATH}".old"  
+        # Update /etc/fstab so can do mount operation.
+        # This involves inserting the key so that the signature can be recovered
+        # and therefore used in the fstab entry line.
+
+        rm -f ${EFS_CONFIG_FSTAB_PATH}
+        cp -f ${EFS_FSTAB_PATH} ${EFS_CONFIG_FSTAB_PATH}  
+
+        # See the ecryptfs.7 manpage for the description of the options used here.
+        # The options permit non-interactive mounting  i.e. a user doesn't
+        # have to respond to prompts. Note the ecryptfs_unlink_sigs option causes 
+        # umount to remove the key from the keyring.
+        efs_config_fstab_entry="${EFS_CONFIG_LOWER_PATH} ${EFS_CONFIG_UPPER_PATH} ecryptfs "
+        efs_config_fstab_entry+="noauto,user,"
+        efs_config_fstab_entry+="ecryptfs_sig=${sig},"
+        efs_config_fstab_entry+="ecryptfs_fnek_sig=${sig},"
+        efs_config_fstab_entry+="ecryptfs_cipher=aes,ecryptfs_key_bytes=${EFS_SESSION_KEY_BYTES},"
+        efs_config_fstab_entry+="key=passphrase:passphrase_passwd_file=${EFS_CONFIG_PASSPHRASE_FILE_PATH},"
+        efs_config_fstab_entry+="ecryptfs_passthrough=n,ecryptfs_unlink_sigs,no_sig_cache 0 0"
+        echo ${efs_config_fstab_entry} >> ${EFS_FSTAB_PATH}
     fi
-    echo ${efs_config_fstab_entry} >> ${EFS_FSTAB_PATH}
     
-    return $ret
+    # everything successfully initialised. Report 
+    return ${EFS_SUCCESS_KEY_CREATED}
 }
 
-# FUNCTION: efs_setup()
-#  setup ecryptfs config the first time the system boots
-#
-efs_setup_config()
-{
-    
-    # check whether the configuration exists.
-    # If yes, return. otherwise configure the system
-    
-    # make the .ecryptfs dir to hold the files, the ciphered dir, the decyphered dir (can these be refered to as upper and lower?)
-    
-    # create secret.conf? may not be necessary
-    
-    # store secret.sig? have to extract this
-    
-    # generate key and passphrase
-    
-    # store passphrase for use in fstab entry
-    
-    return 0    
-}
 
 ###############################################################################
 # FUNCTION: efs_init()
@@ -203,16 +206,22 @@ efs_setup_config()
 #  - install the FEKEK in the keyring.
 #  - mount the cipher directory
 ###############################################################################
-efs_init()
+function efs_init()
 {
-    # start the ecryptfs message dispatcher
-    /usr/bin/ecryptfsd -f
-
-    # install the wrapped key in the keyring
-    # cat /home/root/passphrase.txt | ecryptfs-insert-wrapped-passphrase-into-keyring /home/root/.ecryptfs/wrapped-passphrase - 
-    sig=$(cat ${EFS_CONFIG_PASSPHRASE_FILE_PATH} | ${EFS_INSERT_PASSPH} ${EFS_CONFIG_KEY_FILENAME_PATH} -)
+    local ret=${ERS_ERROR} 
+    local efs_fekek_passphrase=""
     
-    # todo: check its the same signature as the one in EFS_CONFIG_KEY_SIG_FILE_PATH 
+    efs_sys_init
+    ret=$?
+    if [ $ret -lt ${EFS_SUCCESS} ]; then
+        return $ret
+    elif [ $ret -eq ${EFS_SUCCESS} ]; then
+        # Extract the passphrase from the passphrase file which has type=value
+        # format.
+        efs_fekek_passphrase=$(cat ${EFS_CONFIG_PASSPHRASE_FILE_PATH})
+        efs_fekek_passphrase=${efs_fekek_passphrase/passphrase_passwd=/""}
+        echo ${efs_fekek_passphrase} | ${EFS_INSERT_PASSPH} ${EFS_CONFIG_KEY_FILENAME_PATH} -
+    fi
     
     # Mount the encrypted directory using configuration in /etc/fstab
     mount ${EFS_CONFIG_UPPER_PATH}
@@ -225,36 +234,21 @@ efs_init()
 ###############################################################################
 efs_deinit()
 {
-    # Mount the encrypted directory using configuration in /etc/fstab
+    # un-mount the encrypted directory
     umount ${EFS_CONFIG_UPPER_PATH}
-
-    # start the ecryptfs message dispatcher
-    # todo: kill `pidof ecryptfsd`
 }
 
-
-test()
+###############################################################################
+# FUNCTION: efs_main()
+#  
+###############################################################################
+efs_main()
 {
-    search="["
-    string="Inserted auth tok with sig [dd0a45455a291a98] into the user session keyring"
-    x=${string##*$search}
-    echo "x=$x"
-
-    #pattern="[A-z0-9 ]*[a-f0-9]"
-    pattern="["
-    x=${string/*$pattern/""}
-    echo "x=$x"
-
-    pattern="]"
-    y=${x/$pattern*/""}
-    echo "y=$y"
-    
-    x=${string/*"["/""}
-    x=${x/"]"*/""}
-    echo "x=$x"
-    
+    # TODO: delete efs_init_pc() for final version
+    #efs_init_pc
+    efs_init
 }
 
-efs_init_pc
-efs_generate_keys
+# Start the script at the main() function
+efs_main
 
