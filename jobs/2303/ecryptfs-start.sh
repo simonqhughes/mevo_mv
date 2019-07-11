@@ -1,57 +1,56 @@
 #!/bin/bash
 #
-# TODO: copyright notice
+###############################################################################
+# Copyright (c) 2019 Arm Limited and Contributors. All rights reserved.
 #
-# ecryptfs-start.sh
-#  Script to setup blahs
-#  TODO: more explanation.
+# SPDX-License-Identifier: Apache-2.0
 #
-# Document the configuration that needs to be present in the /etc/fstab
+# ecryptfs homepage:    http://ecryptfs.org/
+# Summary:              The enterprise cryptographic filesystem for Linux.
 #
-# /home/root/.secret /home/root/secret ecryptfs \
-#   noauto,user,ecryptfs_sig=dd0a45455a291a98, \
-#   ecryptfs_fnek_sig=dd0a45455a291a98, \
-#   ecryptfs_cipher=aes,ecryptfs_key_bytes=16, \
-#   key=passphrase:passphrase_passwd_file=/home/root/passphrase1.txt, \
-#   ecryptfs_passthrough=n,ecryptfs_unlink_sigs 0 0
+# Description
+# ===========
+#  This script is used to mount an ecryptfs ciphered directory at system
+#  startup. If the ciphered directory is being mounted for the first time
+#  (e.g. when the system boots after flashing an image) then the required
+#  configuration is generated and stored. The configuration includes:
+#  - An ecyptfs FEKEK (File Encryption Key Encryption Key).
+#  - A passphrase to protect the FEKEK, and the storing of the passphrase
+#    in a file.
+#  - An entry in /etc/fstab specifying the mount operation. This uses the
+#    passphrase file.
+#  - The creation of the upper (unencrypted) and lower (encrypted) storage
+#    directories.
 #
+#  The following operations happen during boot:
+#  - The passphrase protected FEKEK is added to the user kernel keyring.
+#  - The ecrypted (lower) directory is mounted by ecryptfs to provide the 
+#    unencrypted (upper) directory. Mount options in fstab specify the  
+#    the FEKEK key signature so ecryptfs can read the cipher key from the
+#    keyring. The passphrase is also read to decode the FEKEK.
 #
-# Outstanding issue:
-#  passphrase is generated and stored in the configuration dir.
-#  this shouldnt be the case, as it should be in the keyring and 
-#  referred to by its signature
-
-# The upper and lower directory terminology originated with overlay 
-# filesystems and is further described at [1].
+#  The upper and lower directory terminology is explained in [1].
 #
-# Notes:
-# useful keyctl commands: 
-#   keyctl list            # list keys
-#   keyctl show            # list keys
-#   keyctl revoke <id>     # make key for deletion
-#   keyctl reap            # delete revoked keys
+# Outstanding Issues
+# ==================
+#  - The passphrase should not be stored on the filesystem, but retrieved
+#    from secure storage e.g. on-chip internal trusted flash, or secure flash.
+#  - Allow _UPPER dir to be configured by a command line arg that can be
+#    specified to the script.
+#  - Allow _LOWER to be specified as command line arg. check if this can be
+#    supplied by ecryptfs.service file.
 #
 # References
 # ==========
 # [1] See the following document in the Linux kernel source code tree: 
 #       <src/>/Documentation/filesystems/overlayfs.txt
-#
-# TODO: 
-# - allow _UPPER dir to be configured by a command line arg that can be
-#   specified to the script.
-# - allow _LOWER to be specified as command line arg. check if this can be
-#   supplied by ecryptfs.service file.
+###############################################################################
 
-
- 
-
-
-# TODO: remove next line
+# Uncomment this line for debug trace.
 #set -x
 
-
 ###############################################################################
-# Tools, required to be on the PATH 
+# Tools. These ecryptfs-util tools are required to be on the PATH. 
 ###############################################################################
 EFS_DAEMON="ecryptfsd"
 EFS_INSERT_PASSPH="ecryptfs-insert-wrapped-passphrase-into-keyring"
@@ -60,15 +59,9 @@ EFS_WRAP_PASSPH="ecryptfs-wrap-passphrase"
 ###############################################################################
 # Symbols
 ###############################################################################
-# TODO: set this back when done testing on PC
-#EFS_PREFIX="./"
-EFS_PREFIX=""
-EFS_FSTAB_PATH=${EFS_PREFIX}"/etc/fstab"
-# todo: set EFS_HOME to empty
-EFS_HOME=${EFS_PREFIX}"/home"
+EFS_FSTAB_PATH="/etc/fstab"
+EFS_HOME="/home"
 EFS_RANDOM="/dev/random"
-# TODO: remove next line
-#EFS_RANDOM="/dev/urandom"
 EFS_USER="root"
 
 # Directory to store configuration artifacts
@@ -76,8 +69,6 @@ EFS_CONFIG_DIR=".ecryptfs"
 EFS_CONFIG_DIR_PATH=${EFS_HOME}/${EFS_USER}/${EFS_CONFIG_DIR}
 EFS_CONFIG_FSTAB_PATH=${EFS_CONFIG_DIR_PATH}/"fstab.old"
 EFS_CONFIG_KEY_FILENAME_PATH=${EFS_CONFIG_DIR_PATH}/"wrapped-passphrase.bin"
-# TODO: remove this as not used
-# EFS_CONFIG_KEY_SIG_FILE_PATH=${EFS_CONFIG_DIR_PATH}/"key_sig.txt"
 EFS_CONFIG_PASSPHRASE_FILE_PATH=${EFS_CONFIG_DIR_PATH}/"passphrase.txt"
 
 # This is the path to the encrypted storage directory on the underlying 
@@ -100,17 +91,6 @@ EFS_SUCCESS=0
 EFS_ERROR=-1
 EFS_RET=${EFS_SUCCESS}
 
-###############################################################################
-# FUNCTION: efs_init_pc
-#  Initialise on PC for testing purposes.
-#  Can be removed from final version
-###############################################################################
-function efs_init_pc()
-{
-    if [ ! -d "${EFS_CONFIG_DIR_PATH}" ]; then
-        mkdir -p ${EFS_PREFIX}/"etc"
-    fi
-}
 
 ###############################################################################
 # FUNCTION: efs_sys_init()
@@ -168,11 +148,11 @@ function efs_sys_init()
     sig=${sig/*"["/""}
     sig=${sig/"]"*/""}
     
-    # TODO: Is it really necessary to store this? as its stored in the fstab
-    # store the signature of use later by xyx: 
-    # echo "${sig}" > ${EFS_CONFIG_KEY_SIG_FILE_PATH}
-    
     if [ -f "${EFS_FSTAB_PATH}" ]; then
+        
+        # TODO: why  not more of the above code in here as it only happens if there
+        # fstab exists. perhaps check up front and error if not present?
+    
         # Update /etc/fstab so can do mount operation.
         # This involves inserting the key so that the signature can be recovered
         # and therefore used in the fstab entry line.
@@ -232,7 +212,7 @@ function efs_init()
 # FUNCTION: efs_deinit()
 #  This function performs the following system startup de-initialisation:
 ###############################################################################
-efs_deinit()
+function efs_deinit()
 {
     # un-mount the encrypted directory
     umount ${EFS_CONFIG_UPPER_PATH}
@@ -240,12 +220,11 @@ efs_deinit()
 
 ###############################################################################
 # FUNCTION: efs_main()
-#  
+#  TODO: implement case switch on start, stop, so script can be used
+#  by sysvinit.
 ###############################################################################
-efs_main()
+function efs_main()
 {
-    # TODO: delete efs_init_pc() for final version
-    #efs_init_pc
     efs_init
 }
 
