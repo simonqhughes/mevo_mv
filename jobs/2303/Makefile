@@ -36,10 +36,7 @@ psa-storage-install: psa-storage
 	make -C psa-storage install prefix=$(TOPDIR)/psa-storage/usr/local
 
 
-test: test-mbed-crypto-app test-mbed-crypto-its test-mbed-crypto-key test-psa-storage-app
-
-test-mbed-crypto-app:
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
+test: test-mbed-crypto-its test-mbed-crypto-key test-psa-storage-app
 
 test-mbed-crypto-its:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..

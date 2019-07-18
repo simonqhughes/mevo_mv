@@ -4,9 +4,9 @@
   
   <default revision="master" sync-j="4"/>
   
-  <project name="armmbed/mevo" path="mevo" remote="github" revision="eca4104165639cc9d1c8f611f88217bf8c161592" upstream="master">
+  <project name="armmbed/mevo" path="mevo" remote="github" revision="24dec697aead3c5c41d73170ecd1689ae8818c06" upstream="master">
     <linkfile dest="Makefile" src="jobs/2303/Makefile"/>
   </project>
   <project name="armmbed/psa_trusted_storage_linux" path="psa-storage" remote="github" revision="ad9963c241ffed1356f85ea75a7eb6d41cecccde" upstream="feature-psa-storage"/>
-  <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="67c82c9dbc0f4530aa0b3eef1e238ce17e6e2dc5" upstream="feature-psa-storage"/>
+  <project name="simonqhughes/mbed-crypto" path="mbed-crypto" remote="github" revision="e253fdf7795ffe7a004d68738a3c3d2cba86e793" upstream="feature-psa-storage"/>
 </manifest>
