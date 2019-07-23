@@ -2,6 +2,8 @@
 # Makefile to make composite project of mbed-crypto and libpsastorage
 
 TOPDIR = $(shell pwd)
+JOBDIR = ${TOPDIR}/mevo/jobs/2303
+MBED_CRYPTO_PATCH = ${JOBDIR}/0001-Add-psa_trusted_storage_linux-persistent-storage-sup.patch 
 CFLAGS="-I${TOPDIR}/psa-storage/inc -I${TOPDIR}/psa-storage/configs -DMBEDTLS_CONFIG_FILE='<mbed_crypto_psa_storage_config.h>'"
 LDFLAGS="-L${TOPDIR}/psa-storage/usr/local/lib -lpsastorage"
 LD_LIBRARY_PATH=$(TOPDIR)/mbed-crypto/library/:$(TOPDIR)/psa-storage/usr/local/lib
@@ -35,8 +37,15 @@ psa-storage-clean:
 psa-storage-install: psa-storage
 	make -C psa-storage install prefix=$(TOPDIR)/psa-storage/usr/local
 
+.PHONY: mbed-crypto-patch
+mbed-crypto-patch:
+	# The patch should be applied against the development branch
+	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH} && cd ..
 
-test: test-mbed-crypto-its test-mbed-crypto-key test-psa-storage-app
+test: test-mbed-crypto-app test-mbed-crypto-its test-mbed-crypto-key test-psa-storage-app
+
+test-mbed-crypto-app:
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
 
 test-mbed-crypto-its:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
