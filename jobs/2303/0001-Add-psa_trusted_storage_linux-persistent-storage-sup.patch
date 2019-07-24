@@ -1,4 +1,4 @@
-From aa449a36aad0982d9005e6fe5ae83f36d1d3c878 Mon Sep 17 00:00:00 2001
+From 19d62ccecdcc813b76e604741140042d40a3fd37 Mon Sep 17 00:00:00 2001
 From: Simon D Hughes <simon.hughes@arm.com>
 Date: Wed, 10 Jul 2019 16:34:21 +0100
 Subject: [PATCH] Add psa_trusted_storage_linux persistent storage support for
@@ -119,9 +119,7 @@ Revert "PSA Storage: Remove mbl-crypto-storage-example-app (#3)"
 This reverts commit 82541b6e1ad29d8c79b6f74262ed0512deae047a.
 ---
  include/mbedtls/config.h                           |   33 +
- library/psa_crypto_its.h                           |    4 +-
- library/psa_crypto_storage.c                       |    4 +-
- library/psa_its_file.c                             |    7 +-
+ library/psa_crypto_storage.c                       |    1 +
  library/version_features.c                         |    6 +
  programs/Makefile                                  |    5 +
  programs/test/CMakeLists.txt                       |    5 +-
@@ -129,12 +127,12 @@ This reverts commit 82541b6e1ad29d8c79b6f74262ed0512deae047a.
  programs/test/query_config.c                       |   16 +
  tests/scripts/all.sh                               |    5 +
  .../test_suite_psa_crypto_persistent_key.data      |    2 +-
- tests/suites/test_suite_psa_its.function           |   26 +-
- 12 files changed, 1804 insertions(+), 14 deletions(-)
+ tests/suites/test_suite_psa_its.function           |    7 +-
+ 10 files changed, 1782 insertions(+), 3 deletions(-)
  create mode 100644 programs/test/mbl-crypto-storage-example-app.c
 
 diff --git a/include/mbedtls/config.h b/include/mbedtls/config.h
-index 56ad01c..bfdbe5e 100644
+index e795bb8..25050e5 100644
 --- a/include/mbedtls/config.h
 +++ b/include/mbedtls/config.h
 @@ -1735,6 +1735,39 @@
@@ -177,30 +175,8 @@ index 56ad01c..bfdbe5e 100644
   * \def MBEDTLS_RIPEMD160_C
   *
   * Enable the RIPEMD-160 hash algorithm.
-diff --git a/library/psa_crypto_its.h b/library/psa_crypto_its.h
-index 44d5198..ac3c8a8 100644
---- a/library/psa_crypto_its.h
-+++ b/library/psa_crypto_its.h
-@@ -91,6 +91,7 @@ psa_status_t psa_its_set(psa_storage_uid_t uid,
-  * \param[in] data_offset       The starting offset of the data requested
-  * \param[in] data_length       the amount of data requested (and the minimum allocated size of the `p_data` buffer)
-  * \param[out] p_data           The buffer where the data will be placed upon successful completion
-+ * \param[out] p_data_length    The amount of data returned in the p_data buffer
-  *
-  *
-  * \return      A status indicating the success/failure of the operation
-@@ -106,7 +107,8 @@ psa_status_t psa_its_set(psa_storage_uid_t uid,
- psa_status_t psa_its_get(psa_storage_uid_t uid,
-                          uint32_t data_offset,
-                          uint32_t data_length,
--                         void *p_data);
-+                         void *p_data,
-+                         size_t* p_data_length );
- 
- /**
-  * \brief Retrieve the metadata about the provided uid
 diff --git a/library/psa_crypto_storage.c b/library/psa_crypto_storage.c
-index babc5bb..be17a38 100644
+index 3c33c1d..e0e73b3 100644
 --- a/library/psa_crypto_storage.c
 +++ b/library/psa_crypto_storage.c
 @@ -40,6 +40,7 @@
@@ -211,53 +187,6 @@ index babc5bb..be17a38 100644
  #endif
  
  #if defined(MBEDTLS_PLATFORM_C)
-@@ -96,12 +97,13 @@ static psa_status_t psa_crypto_storage_load( const psa_key_file_id_t key,
-     psa_status_t status;
-     psa_storage_uid_t data_identifier = psa_its_identifier_of_slot( key );
-     struct psa_storage_info_t data_identifier_info;
-+    size_t data_length = 0;
- 
-     status = psa_its_get_info( data_identifier, &data_identifier_info );
-     if( status  != PSA_SUCCESS )
-         return( status );
- 
--    status = psa_its_get( data_identifier, 0, (uint32_t) data_size, data );
-+    status = psa_its_get( data_identifier, 0, (uint32_t) data_size, data, &data_length );
- 
-     return( status );
- }
-diff --git a/library/psa_its_file.c b/library/psa_its_file.c
-index 8cdf783..879e9ca 100644
---- a/library/psa_its_file.c
-+++ b/library/psa_its_file.c
-@@ -44,7 +44,7 @@
- #include <stdio.h>
- #include <string.h>
- 
--#define PSA_ITS_STORAGE_PREFIX ""
-+#define PSA_ITS_STORAGE_PREFIX MBEDTLS_PSA_ITS_FILE_C_STORAGE_PREFIX
- 
- #define PSA_ITS_STORAGE_FILENAME_PATTERN "%08lx%08lx"
- #define PSA_ITS_STORAGE_SUFFIX ".psa_its"
-@@ -137,7 +137,8 @@ psa_status_t psa_its_get_info( psa_storage_uid_t uid,
- psa_status_t psa_its_get( psa_storage_uid_t uid,
-                           uint32_t data_offset,
-                           uint32_t data_length,
--                          void *p_data )
-+                          void *p_data,
-+                          size_t* p_data_length )
- {
-     psa_status_t status;
-     FILE *stream = NULL;
-@@ -172,6 +173,8 @@ psa_status_t psa_its_get( psa_storage_uid_t uid,
-     if( n != data_length )
-         goto exit;
-     status = PSA_SUCCESS;
-+    if( p_data_length != NULL )
-+        *p_data_length = n;
- 
- exit:
-     if( stream != NULL )
 diff --git a/library/version_features.c b/library/version_features.c
 index 4f1da6a..f5ae216 100644
 --- a/library/version_features.c
@@ -2025,10 +1954,10 @@ index 0000000..f9f102e
 +    return( ret );
 +}
 diff --git a/programs/test/query_config.c b/programs/test/query_config.c
-index fc25353..dc3948e 100644
+index e90847a..e1c12a9 100644
 --- a/programs/test/query_config.c
 +++ b/programs/test/query_config.c
-@@ -1525,6 +1525,22 @@ int query_config( const char *config )
+@@ -1524,6 +1524,22 @@ int query_config( const char *config )
      }
  #endif /* MBEDTLS_PSA_ITS_FILE_C */
  
@@ -2109,7 +2038,7 @@ index 36a3bfa..459562d 100644
  
  Save larger than maximum size persistent raw key, should fail
 diff --git a/tests/suites/test_suite_psa_its.function b/tests/suites/test_suite_psa_its.function
-index 867f64f..904cd45 100644
+index 2266b90..d9c880b 100644
 --- a/tests/suites/test_suite_psa_its.function
 +++ b/tests/suites/test_suite_psa_its.function
 @@ -1,5 +1,10 @@
@@ -2132,97 +2061,6 @@ index 867f64f..904cd45 100644
   * END_DEPENDENCIES
   */
  
-@@ -69,6 +74,7 @@ void set_get_remove( int uid_arg, int flags_arg, data_t *data )
-     uint32_t flags = flags_arg;
-     struct psa_storage_info_t info;
-     unsigned char *buffer = NULL;
-+    size_t ret_len = 0;
- 
-     ASSERT_ALLOC( buffer, data->len );
- 
-@@ -77,7 +83,7 @@ void set_get_remove( int uid_arg, int flags_arg, data_t *data )
-     PSA_ASSERT( psa_its_get_info( uid, &info ) );
-     TEST_ASSERT( info.size == data->len );
-     TEST_ASSERT( info.flags == flags );
--    PSA_ASSERT( psa_its_get( uid, 0, data->len, buffer ) );
-+    PSA_ASSERT( psa_its_get( uid, 0, data->len, buffer, &ret_len ) );
-     ASSERT_COMPARE( data->x, data->len, buffer, data->len );
- 
-     PSA_ASSERT( psa_its_remove( uid ) );
-@@ -98,6 +104,7 @@ void set_overwrite( int uid_arg,
-     uint32_t flags2 = flags2_arg;
-     struct psa_storage_info_t info;
-     unsigned char *buffer = NULL;
-+    size_t ret_len = 0;
- 
-     ASSERT_ALLOC( buffer, MAX( data1->len, data2->len ) );
- 
-@@ -105,14 +112,15 @@ void set_overwrite( int uid_arg,
-     PSA_ASSERT( psa_its_get_info( uid, &info ) );
-     TEST_ASSERT( info.size == data1->len );
-     TEST_ASSERT( info.flags == flags1 );
--    PSA_ASSERT( psa_its_get( uid, 0, data1->len, buffer ) );
-+    PSA_ASSERT( psa_its_get( uid, 0, data1->len, buffer, &ret_len ) );
-     ASSERT_COMPARE( data1->x, data1->len, buffer, data1->len );
- 
-     PSA_ASSERT( psa_its_set_wrap( uid, data2->len, data2->x, flags2 ) );
-     PSA_ASSERT( psa_its_get_info( uid, &info ) );
-     TEST_ASSERT( info.size == data2->len );
-     TEST_ASSERT( info.flags == flags2 );
--    PSA_ASSERT( psa_its_get( uid, 0, data2->len, buffer ) );
-+    ret_len = 0;
-+    PSA_ASSERT( psa_its_get( uid, 0, data2->len, buffer, &ret_len ) );
-     ASSERT_COMPARE( data2->x, data2->len, buffer, data2->len );
- 
-     PSA_ASSERT( psa_its_remove( uid ) );
-@@ -130,6 +138,7 @@ void set_multiple( int first_id, int count )
-     psa_storage_uid_t uid;
-     char stored[40];
-     char retrieved[40];
-+    size_t ret_len = 0;
- 
-     memset( stored, '.', sizeof( stored ) );
-     for( uid = uid0; uid < uid0 + count; uid++ )
-@@ -143,11 +152,11 @@ void set_multiple( int first_id, int count )
-     {
-         mbedtls_snprintf( stored, sizeof( stored ),
-                           "Content of file 0x%08lx", (unsigned long) uid );
--        PSA_ASSERT( psa_its_get( uid, 0, sizeof( stored ), retrieved ) );
-+        PSA_ASSERT( psa_its_get( uid, 0, sizeof( stored ), retrieved, &ret_len ) );
-         ASSERT_COMPARE( retrieved, sizeof( stored ),
-                         stored, sizeof( stored ) );
-         PSA_ASSERT( psa_its_remove( uid ) );
--        TEST_ASSERT( psa_its_get( uid, 0, 0, NULL ) ==
-+        TEST_ASSERT( psa_its_get( uid, 0, 0, NULL, NULL ) ==
-                      PSA_ERROR_DOES_NOT_EXIST );
-     }
- 
-@@ -171,7 +180,7 @@ void nonexistent( int uid_arg, int create_and_remove )
-     TEST_ASSERT( psa_its_remove( uid ) == PSA_ERROR_DOES_NOT_EXIST );
-     TEST_ASSERT( psa_its_get_info( uid, &info ) ==
-                  PSA_ERROR_DOES_NOT_EXIST );
--    TEST_ASSERT( psa_its_get( uid, 0, 0, NULL ) ==
-+    TEST_ASSERT( psa_its_get( uid, 0, 0, NULL, NULL ) ==
-                  PSA_ERROR_DOES_NOT_EXIST );
- 
- exit:
-@@ -190,6 +199,7 @@ void get_at( int uid_arg, data_t *data,
-     size_t length = length_arg >= 0 ? length_arg : 0;
-     unsigned char *trailer;
-     size_t i;
-+    size_t ret_len = 0;
- 
-     ASSERT_ALLOC( buffer, length + 16 );
-     trailer = buffer + length;
-@@ -197,7 +207,7 @@ void get_at( int uid_arg, data_t *data,
- 
-     PSA_ASSERT( psa_its_set_wrap( uid, data->len, data->x, 0 ) );
- 
--    status = psa_its_get( uid, offset, length_arg, buffer );
-+    status = psa_its_get( uid, offset, length_arg, buffer, &ret_len );
-     TEST_ASSERT( status == (psa_status_t) expected_status );
-     if( status == PSA_SUCCESS )
-         ASSERT_COMPARE( data->x + offset, length,
 -- 
 2.7.4
 
