@@ -3,10 +3,13 @@
 
 TOPDIR = $(shell pwd)
 JOBDIR = ${TOPDIR}/mevo/jobs/2303
-MBED_CRYPTO_PATCH = ${JOBDIR}/0001-Add-psa_trusted_storage_linux-persistent-storage-sup.patch 
+MBED_CRYPTO_PATCH1 = ${JOBDIR}/0001-Add-psa_trusted_storage_linux-persistent-storage-sup.patch 
+MBED_CRYPTO_PATCH2 = ${JOBDIR}/0002-PSA-Storage-Fix-tests-to-support-PSA_STORAGE_FLAG_NO.patch 
 CFLAGS="-I${TOPDIR}/psa-storage/inc -I${TOPDIR}/psa-storage/configs -DMBEDTLS_CONFIG_FILE='<mbed_crypto_psa_storage_config.h>'"
 LDFLAGS="-L${TOPDIR}/psa-storage/usr/local/lib -lpsastorage"
 LD_LIBRARY_PATH=$(TOPDIR)/mbed-crypto/library/:$(TOPDIR)/psa-storage/usr/local/lib
+TEST_DIR="${TOPDIR}/test/"
+PSA_CFLAGS="-DPSA_STORAGE_FILE_C_STORAGE_PREFIX='\"${TEST_DIR}\"'"
 
 .PHONY: all
 all: mbed-crypto
@@ -17,10 +20,10 @@ mbed-crypto: psa-storage-install
 
 .PHONY: psa-storage
 psa-storage:
-	make -C psa-storage
+	make -C psa-storage CFLAGS=${PSA_CFLAGS} 
 
 .PHONY: clean
-clean: mbed-crypto-clean psa-storage-clean
+clean: mbed-crypto-clean psa-storage-clean test-clean
 
 .PHONY: install
 install: psa-storage-install
@@ -40,21 +43,31 @@ psa-storage-install: psa-storage
 .PHONY: mbed-crypto-patch
 mbed-crypto-patch:
 	# The patch should be applied against the development branch
-	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH} && cd ..
+	# The patch can be created using: git format-patch -1 HEAD
+	# where the changes have been checked into the last commit.
+	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH1} && cd ..
+	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH2} && cd ..
 
 test: test-mbed-crypto-app test-mbed-crypto-its test-mbed-crypto-key test-psa-storage-app
 
-test-mbed-crypto-app:
+test-mbed-crypto-app: test-dir
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/programs/test && ./mbl-crypto-storage-example-app && cd ../..
 
-test-mbed-crypto-its:
+test-mbed-crypto-its: test-dir
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_its && cd ../..
 
-test-mbed-crypto-key:
+test-mbed-crypto-key: test-dir
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd mbed-crypto/tests && ./test_suite_psa_crypto_persistent_key && cd ../..
 
-test-psa-storage-app:
+test-psa-storage-app: test-dir
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) && cd psa-storage/app && ./psa-storage-example-app && cd ../..
+
+test-dir:
+	-mkdir $(TOPDIR)/test
+
+.PHONY: test-clean
+test-clean:
+	rm -fR $(TOPDIR)/test
 
 .PHONY: manifest
 manifest:
