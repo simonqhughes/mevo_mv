@@ -82,6 +82,14 @@ ws-create:
 	repo sync
 	rm -IR $(TOPDIR)/mevo_create_clone
 
+ws-create-pinned:
+	repo init -u https://github.com/armmbed/mbl-manifest
+	git clone git@github.com:armmbed/mevo mevo_create_clone
+	cp $(TOPDIR)/mevo_create_clone/jobs/2303/psa-storage-pinned-manifest.xml $(TOPDIR)/.repo/manifests
+	repo init -m psa-storage-pinned-manifest.xml
+	repo sync
+	rm -IR $(TOPDIR)/mevo_create_clone
+
 # delete the workspace
 ws-delete:
 	rm -IR $(TOPDIR)/mevo
