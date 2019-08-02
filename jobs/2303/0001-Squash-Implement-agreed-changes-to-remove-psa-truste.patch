@@ -1,0 +1,42 @@
+From b07e5bcfdc08456238eb6f31796eee3972f14b0e Mon Sep 17 00:00:00 2001
+From: Simon Hughes <simon.hughes@arm.com>
+Date: Fri, 2 Aug 2019 14:32:11 +0000
+Subject: [PATCH] Squash: Implement agreed changes to remove
+ psa-trusted-storage-linux feature enablement.
+
+---
+ meta-freescale-3rdparty-mbl/conf/machine/imx7s-warp-mbl.conf     | 9 ---------
+ .../recipes-core/packagegroups/packagegroup-mbl-production.bb    | 1 -
+ 2 files changed, 10 deletions(-)
+
+diff --git a/meta-freescale-3rdparty-mbl/conf/machine/imx7s-warp-mbl.conf b/meta-freescale-3rdparty-mbl/conf/machine/imx7s-warp-mbl.conf
+index 7b89d6a..de163ec 100644
+--- a/meta-freescale-3rdparty-mbl/conf/machine/imx7s-warp-mbl.conf
++++ b/meta-freescale-3rdparty-mbl/conf/machine/imx7s-warp-mbl.conf
+@@ -79,12 +79,3 @@ MBL_WKS_BOOTLOADER2_SIZE_KiB = "1024"
+ 
+ # As reported by "mmc extcsd read /dev/mmcblk1"
+ MBL_FLASH_ERASE_BLOCK_SIZE_KiB = "6144"
+-
+-###############################################################################
+-# The psa-storage machine feature may be enabled for this target.
+-# Related packages are included in the build dependent on this symbol being
+-# defined in MACHINE_FEATURES. This is a temporary measure prior to the feature
+-# being supported on all targets. Uncomment the following line to enable
+-# the feature.
+-###############################################################################
+-#MACHINE_FEATURES_append = " psa-storage"
+diff --git a/meta-mbl-distro/recipes-core/packagegroups/packagegroup-mbl-production.bb b/meta-mbl-distro/recipes-core/packagegroups/packagegroup-mbl-production.bb
+index bc2644e..36075a9 100644
+--- a/meta-mbl-distro/recipes-core/packagegroups/packagegroup-mbl-production.bb
++++ b/meta-mbl-distro/recipes-core/packagegroups/packagegroup-mbl-production.bb
+@@ -56,6 +56,5 @@ PACKAGEGROUP_MBL_PRODUCTION_PKGS_append = " optee-client"
+ PACKAGEGROUP_MBL_PRODUCTION_PKGS_append = " connman"
+ PACKAGEGROUP_MBL_PRODUCTION_PKGS_append = " connman-client"
+ PACKAGEGROUP_MBL_PRODUCTION_PKGS_append = " systemd-net-conf"
+-PACKAGEGROUP_MBL_PRODUCTION_PKGS_append = " ${@bb.utils.contains('MACHINE_FEATURES', 'psa-storage', 'psa-trusted-storage-linux', '', d)}"
+ 
+ RDEPENDS_packagegroup-mbl-production += "${PACKAGEGROUP_MBL_PRODUCTION_PKGS}"
+-- 
+2.7.4
+
