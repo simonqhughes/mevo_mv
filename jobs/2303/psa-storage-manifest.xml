@@ -7,6 +7,7 @@
   <default revision="master" sync-j="4"/>
 
   <project name="armmbed/psa_trusted_storage_linux" path="psa-storage" remote="github" revision="feature-psa-storage"/>
+  <project name="simonqhughes/psa-arch-tests" path="psa-arch-tests" remote="github" revision="sdh_iotmbl_2481"/>
   <project name="armmbed/mbed-crypto" path="mbed-crypto" remote="github" revision="development"/>
   <project name="armmbed/mevo" path="mevo" remote="github">
     <linkfile dest="Makefile" src="jobs/2303/Makefile"/>
