@@ -45,6 +45,7 @@ mbed-crypto-patch:
 	# The patch should be applied against the development branch
 	# The patch can be created using: git format-patch -1 HEAD
 	# where the changes have been checked into the last commit.
+	cd mbed-crypto && git checkout aad3dab
 	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH1} && cd ..
 	cd mbed-crypto && git am < ${MBED_CRYPTO_PATCH2} && cd ..
 
@@ -96,3 +97,32 @@ ws-delete:
 	rm -IR $(TOPDIR)/psa-storage
 	rm -IR $(TOPDIR)/.repo
 	rm -IR $(TOPDIR)/mbed-crypto
+
+
+# working on new targets to build psa-arch-tests project
+
+#TODO: rename psa-storage to psa_trusted_storage_linux
+PSA_STORAGE_DIR=psa-storage
+PSA_ARCH_TEST_BOILERPATE_DIR=mbedtls-test
+
+.PHONY: psa-arch-test-ps
+psa-arch-test-ps: $(TOPDIR)/psa-arch-tests/api-tests/build-ps $(TOPDIR)/psa-arch-tests/api-tests/build-ps/CMakeFiles main.o 
+	cd psa-arch-tests/api-tests/build-ps && cmake --build .
+	cd psa-arch-tests/api-tests/build-ps && gcc -o psa-arch-tests-ps $(TOPDIR)/mbedtls-test/resources/psa-arch-tests/main.o ./dev_apis/protected_storage/test_combine.a ./val/val_nspe.a ./platform/pal_nspe.a ./dev_apis/protected_storage/test_combine.a $(TOPDIR)/$(PSA_STORAGE_DIR)/usr/local/lib/libpsastorage.so
+
+$(TOPDIR)/psa-arch-tests/api-tests/build-ps:
+	mkdir $(TOPDIR)/psa-arch-tests/api-tests/build-ps
+
+$(TOPDIR)/psa-arch-tests/api-tests/build-ps/CMakeFiles:
+	cd psa-arch-tests/api-tests/build-ps && cmake ../ -DTOOLCHAIN=HOST_GCC -DTARGET=tgt_dev_apis_stdc -DSUITE=PROTECTED_STORAGE -DPSA_INCLUDE_PATHS=$(TOPDIR)/$(PSA_STORAGE_DIR)/inc -DCPU_ARCH=armv7m
+
+
+psa-arch-test-ps-build:
+	cd $(TOPDIR)/psa-arch-tests/api-tests/build-ps && cmake --build .
+
+# delete the psa-arch-test-ps test binary
+psa-arch-test-ps-clean:
+	rm -IR $(TOPDIR)/psa-arch-tests/api-tests/build-ps
+
+main.o:
+	gcc -Wall -Werror -c -o ./$(PSA_ARCH_TEST_BOILERPATE_DIR)//resources/psa-arch-tests/main.o ./mbedtls-test/resources/psa-arch-tests/main.c
