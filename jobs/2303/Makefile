@@ -12,7 +12,7 @@ TEST_DIR="${TOPDIR}/test/"
 PSA_CFLAGS="-DPSA_STORAGE_FILE_C_STORAGE_PREFIX='\"${TEST_DIR}\"'"
 
 .PHONY: all
-all: mbed-crypto
+all: psa-arch-tests-ps
 
 .PHONY: mbed-crypto
 mbed-crypto: psa-storage-install
@@ -23,7 +23,7 @@ psa-storage:
 	make -C psa-storage CFLAGS=${PSA_CFLAGS} 
 
 .PHONY: clean
-clean: mbed-crypto-clean psa-storage-clean test-clean
+clean: mbed-crypto-clean psa-storage-clean test-clean psa-arch-tests-ps-clean
 
 .PHONY: install
 install: psa-storage-install
@@ -105,8 +105,8 @@ ws-delete:
 PSA_STORAGE_DIR=psa-storage
 PSA_ARCH_TEST_BOILERPATE_DIR=mbedtls-test
 
-.PHONY: psa-arch-test-ps
-psa-arch-test-ps: $(TOPDIR)/psa-arch-tests/api-tests/build-ps $(TOPDIR)/psa-arch-tests/api-tests/build-ps/CMakeFiles main.o 
+.PHONY: psa-arch-tests-ps
+psa-arch-tests-ps: mbed-crypto psa-storage-install $(TOPDIR)/psa-arch-tests/api-tests/build-ps $(TOPDIR)/psa-arch-tests/api-tests/build-ps/CMakeFiles main.o 
 	cd psa-arch-tests/api-tests/build-ps && cmake --build .
 	cd psa-arch-tests/api-tests/build-ps && gcc -o psa-arch-tests-ps $(TOPDIR)/mbedtls-test/resources/psa-arch-tests/main.o ./dev_apis/protected_storage/test_combine.a ./val/val_nspe.a ./platform/pal_nspe.a ./dev_apis/protected_storage/test_combine.a $(TOPDIR)/$(PSA_STORAGE_DIR)/usr/local/lib/libpsastorage.so
 
@@ -116,13 +116,17 @@ $(TOPDIR)/psa-arch-tests/api-tests/build-ps:
 $(TOPDIR)/psa-arch-tests/api-tests/build-ps/CMakeFiles:
 	cd psa-arch-tests/api-tests/build-ps && cmake ../ -DTOOLCHAIN=HOST_GCC -DTARGET=tgt_dev_apis_stdc -DSUITE=PROTECTED_STORAGE -DPSA_INCLUDE_PATHS=$(TOPDIR)/$(PSA_STORAGE_DIR)/inc -DCPU_ARCH=armv7m
 
-
-psa-arch-test-ps-build:
+psa-arch-tests-ps-build:
 	cd $(TOPDIR)/psa-arch-tests/api-tests/build-ps && cmake --build .
 
-# delete the psa-arch-test-ps test binary
-psa-arch-test-ps-clean:
-	rm -IR $(TOPDIR)/psa-arch-tests/api-tests/build-ps
+# delete the psa-arch-tests-ps test binary
+psa-arch-tests-ps-clean:
+	rm -fR $(TOPDIR)/psa-arch-tests/api-tests/build-ps
 
 main.o:
-	gcc -Wall -Werror -c -o ./$(PSA_ARCH_TEST_BOILERPATE_DIR)//resources/psa-arch-tests/main.o ./mbedtls-test/resources/psa-arch-tests/main.c
+	gcc -Wall -Werror -c -o ./$(PSA_ARCH_TEST_BOILERPATE_DIR)/resources/psa-arch-tests/main.o ./mbedtls-test/resources/psa-arch-tests/main.c
+
+
+.PHONY: test-psa-arch-tests-ps
+test-psa-arch-tests-ps:
+	$(TOPDIR)/psa-arch-tests/api-tests/build-ps/psa-arch-tests-ps
