@@ -130,3 +130,29 @@ main.o:
 .PHONY: test-psa-arch-tests-ps
 test-psa-arch-tests-ps:
 	$(TOPDIR)/psa-arch-tests/api-tests/build-ps/psa-arch-tests-ps
+
+	
+.PHONY: psa-arch-tests-crypto
+psa-arch-tests-crypto: mbed-crypto $(TOPDIR)/psa-arch-tests/api-tests/build-crypto $(TOPDIR)/psa-arch-tests/api-tests/build-crypto/CMakeFiles main.o 
+	cd psa-arch-tests/api-tests/build-crypto && cmake --build .
+	cd psa-arch-tests/api-tests/build-crypto && gcc -o psa-arch-tests-crypto $(TOPDIR)/mbedtls-test/resources/psa-arch-tests/main.o ./dev_apis/crypto/test_combine.a ./val/val_nspe.a ./platform/pal_nspe.a ./dev_apis/crypto/test_combine.a $(TOPDIR)/mbed-crypto/library/libmbedcrypto.a $(TOPDIR)/$(PSA_STORAGE_DIR)/usr/local/lib/libpsastorage.so
+
+$(TOPDIR)/psa-arch-tests/api-tests/build-crypto:
+	mkdir $(TOPDIR)/psa-arch-tests/api-tests/build-crypto
+
+$(TOPDIR)/psa-arch-tests/api-tests/build-crypto/CMakeFiles:
+	#cd psa-arch-tests/api-tests/build-crypto && cmake ../ -DTOOLCHAIN=HOST_GCC -DTARGET=tgt_dev_apis_stdc -DSUITE=PROTECTED_STORAGE -DPSA_INCLUDE_PATHS=$(TOPDIR)/$(PSA_STORAGE_DIR)/inc -DCPU_ARCH=armv7m
+	cd psa-arch-tests/api-tests/build-crypto && cmake ../ -DTOOLCHAIN=HOST_GCC -DTARGET=tgt_dev_apis_stdc -DSUITE=CRYPTO -DPSA_INCLUDE_PATHS=$(TOPDIR)/mbed-crypto/include -DCPU_ARCH=armv7m
+
+psa-arch-tests-crypto-build:
+	cd $(TOPDIR)/psa-arch-tests/api-tests/build-crypto && cmake --build .
+
+# delete the psa-arch-tests-crypto test binary
+psa-arch-tests-crypto-clean:
+	rm -fR $(TOPDIR)/psa-arch-tests/api-tests/build-crypto
+
+.PHONY: test-psa-arch-tests-crypto
+test-psa-arch-tests-crypto:
+	$(TOPDIR)/psa-arch-tests/api-tests/build-crypto/psa-arch-tests-crypto
+
+	
